@@ -7,7 +7,7 @@
 - [ ] Node.js 18+ installed
 - [ ] MetaMask wallet with Citrea testnet configured
 - [ ] Private key for contract deployment
-- [ ] cBTC tokens for initial pool funding
+- [ ] cBTC balance for gas fees and initial testing
 
 ### Smart Contract Deployment
 
@@ -58,26 +58,25 @@ npm run build
 
 ### Post-Deployment Setup
 
-1. **Fund Contract Pool**
-```javascript
-const contract = new ethers.Contract(address, abi, signer);
-await contract.depositToPool(ethers.parseEther("100")); // 100 cBTC
+1. **Start Price Oracle**
+```bash
+node scripts/priceOracle.js YOUR_CONTRACT_ADDRESS
 ```
 
-2. **Setup Price Automation** (Optional)
-```javascript
-// Automated price submission every 5 minutes
-setInterval(async () => {
-  const price = await fetchBitcoinPrice();
-  await contract.submitPriceAndStartRound(price);
-}, 5 * 60 * 1000);
-```
-
-3. **Test All Functions**
+2. **Test All Functions**
 - [ ] Wallet connection
-- [ ] Bet placement
+- [ ] Bet placement with native cBTC
 - [ ] Round progression
 - [ ] Reward claiming
+
+## Native cBTC Usage
+
+This system uses native cBTC (Citrea's native currency) for all operations:
+- Users bet with native cBTC (sent as msg.value)
+- Rewards are paid in native cBTC
+- No ERC-20 token contracts needed
+- Gas fees paid in cBTC
+- Contract deployment only requires the prediction contract
 
 ## Production Considerations
 
@@ -86,3 +85,21 @@ setInterval(async () => {
 - Set up monitoring and alerts
 - Consider gas optimization for frequent transactions
 - Implement circuit breakers for safety
+
+## Deployment Commands Summary
+
+```bash
+# 1. Deploy the prediction contract
+npx hardhat run scripts/deploy.js --network citrea_testnet
+
+# 2. Update frontend config with deployed address
+# Edit src/config/contracts.ts
+
+# 3. Start the price oracle
+node scripts/priceOracle.js <DEPLOYED_CONTRACT_ADDRESS>
+
+# 4. Build and deploy frontend
+npm run build
+```
+
+That's it! No token contracts needed - everything works with native cBTC.
