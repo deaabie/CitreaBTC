@@ -20,7 +20,7 @@ const Header = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white">Bitcoin Oracle</h1>
-            <p className="text-sm text-orange-300">Citrea Testnet Predictions</p>
+            <p className="text-sm text-orange-300">Plume Testnet Predictions</p>
           </div>
         </div>
 
@@ -28,7 +28,7 @@ const Header = () => {
           {isConnected && (
             <div className="text-right">
               <p className="text-sm text-orange-300">Balance</p>
-              <p className="text-white font-mono">{parseFloat(balance).toFixed(4)} cBTC</p>
+              <p className="text-white font-mono">{parseFloat(balance).toFixed(4)} PLUME</p>
             </div>
           )}
           

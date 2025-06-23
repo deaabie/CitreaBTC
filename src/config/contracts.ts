@@ -18,14 +18,14 @@ export const CONTRACTS = {
   }
 };
 
-export const CITREA_TESTNET = {
-  chainId: 5115,
-  chainName: 'Citrea Testnet',
+export const PLUME_TESTNET = {
+  chainId: 98867,
+  chainName: 'Plume Testnet',
   nativeCurrency: {
-    name: 'cBTC',
-    symbol: 'cBTC',
+    name: 'PLUME',
+    symbol: 'PLUME',
     decimals: 18,
   },
-  rpcUrls: ['https://rpc.testnet.citrea.xyz'],
-  blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
+  rpcUrls: ['https://testnet-rpc.plume.org'],
+  blockExplorerUrls: ['https://testnet-explorer.plume.org/'],
 };

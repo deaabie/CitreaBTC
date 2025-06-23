@@ -10,9 +10,16 @@ class PriceOracle {
   }
 
   async initialize() {
+    // Set up provider for Plume testnet
+    const provider = new hre.ethers.JsonRpcProvider("https://testnet-rpc.plume.org");
+    const wallet = new hre.ethers.Wallet(process.env.PRIVATE_KEY, provider);
+    
     const BitcoinPricePrediction = await hre.ethers.getContractFactory("BitcoinPricePrediction");
-    this.contract = BitcoinPricePrediction.attach(this.contractAddress);
+    this.contract = BitcoinPricePrediction.attach(this.contractAddress).connect(wallet);
+    
     console.log("Oracle initialized with contract:", this.contractAddress);
+    console.log("Network: Plume Testnet (Chain ID: 98867)");
+    console.log("Using wallet:", wallet.address);
   }
 
   async fetchBitcoinPrice() {
@@ -45,12 +52,15 @@ class PriceOracle {
   async submitPrice() {
     try {
       const price = await this.fetchBitcoinPrice();
-      console.log(`Submitting price: $${price}`);
+      console.log(`Submitting price: $${price} to Plume Testnet`);
       
-      const tx = await this.contract.submitPriceAndStartRound(price);
+      const tx = await this.contract.submitPriceAndStartRound(price, {
+        gasLimit: 500000
+      });
       await tx.wait();
       
       console.log(`Price submitted successfully: $${price}`);
+      console.log(`Transaction hash: ${tx.hash}`);
       return price;
     } catch (error) {
       console.error('Error submitting price:', error.message);
@@ -65,7 +75,7 @@ class PriceOracle {
     }
 
     this.isRunning = true;
-    console.log('Starting Bitcoin Price Oracle...');
+    console.log('Starting Bitcoin Price Oracle on Plume Testnet...');
     console.log('Submitting prices every 5 minutes');
 
     // Submit initial price
