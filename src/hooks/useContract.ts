@@ -1,4 +1,3 @@
-
 import { useWallet } from '@/contexts/WalletContext';
 import { CONTRACTS } from '@/config/contracts';
 import { ethers } from 'ethers';
@@ -37,7 +36,7 @@ export const useContract = () => {
   const placeBet = useCallback(async (isUp: boolean, amount: string) => {
     if (!contract) throw new Error('Contract not initialized');
     
-    console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} cBTC`);
+    console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} PLUME`);
     const tx = await contract.placeBet(isUp, {
       value: ethers.parseEther(amount)
     });
@@ -73,6 +72,20 @@ export const useContract = () => {
     return contract.currentRoundId();
   }, [contract]);
 
+  const getLatestPrice = useCallback(async () => {
+    if (!contract) throw new Error('Contract not initialized');
+    const price = await contract.getLatestPrice();
+    // eOracle returns price with 8 decimals
+    return Number(price) / 100000000;
+  }, [contract]);
+
+  const startNewRound = useCallback(async () => {
+    if (!contract) throw new Error('Contract not initialized');
+    console.log('Starting new round...');
+    const tx = await contract.startNewRound();
+    return tx.wait();
+  }, [contract]);
+
   return {
     contract,
     placeBet,
@@ -80,6 +93,8 @@ export const useContract = () => {
     getCurrentRound,
     getUserBets,
     getPendingRewards,
-    getCurrentRoundId
+    getCurrentRoundId,
+    getLatestPrice,
+    startNewRound
   };
 };
