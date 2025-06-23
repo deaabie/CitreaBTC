@@ -343,17 +343,14 @@ const hre = require("hardhat");
 async function main() {
   console.log("Deploying BitcoinPricePrediction contract...");
 
-  // You need to deploy or use existing cBTC token address
-  const cBTCTokenAddress = "0x..."; // Replace with actual cBTC token address
-
   const BitcoinPricePrediction = await hre.ethers.getContractFactory("BitcoinPricePrediction");
-  const contract = await BitcoinPricePrediction.deploy(cBTCTokenAddress);
+  const contract = await BitcoinPricePrediction.deploy();
 
   await contract.waitForDeployment();
 
   console.log("BitcoinPricePrediction deployed to:", await contract.getAddress());
   console.log("Remember to:");
-  console.log("1. Fund the contract with cBTC tokens for rewards");
+  console.log("1. Fund the contract with native cBTC for rewards");
   console.log("2. Set up automated price submission");
   console.log("3. Update frontend with contract address");
 }
@@ -393,10 +390,6 @@ export const CONTRACTS = {
   BITCOIN_PREDICTION: {
     address: "0x...", // Your deployed contract address
     abi: [ /* Contract ABI */ ]
-  },
-  CBTC_TOKEN: {
-    address: "0x...", // cBTC token address
-    abi: [ /* ERC20 ABI */ ]
   }
 };
 
