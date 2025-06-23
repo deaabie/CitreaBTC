@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowUp, ArrowDown, Bitcoin } from 'lucide-react';
+import { ArrowUp, ArrowDown, Bitcoin, Wallet } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import BetForm from './BetForm';
 import RoundTimer from './RoundTimer';

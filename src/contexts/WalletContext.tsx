@@ -45,8 +45,8 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         return;
       }
 
-      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-      const ethersProvider = new ethers.BrowserProvider(ethereum);
+      const accounts = await (ethereum as any).request({ method: 'eth_requestAccounts' });
+      const ethersProvider = new ethers.BrowserProvider(ethereum as any);
       
       setProvider(ethersProvider);
       setAccount(accounts[0]);
@@ -67,7 +67,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const switchToTestnet = async () => {
     try {
-      const ethereum = window.ethereum;
+      const ethereum = (window as any).ethereum;
       if (!ethereum) return;
 
       try {
@@ -99,9 +99,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const checkConnection = async () => {
       const ethereum = await detectEthereumProvider();
       if (ethereum) {
-        const accounts = await ethereum.request({ method: 'eth_accounts' });
+        const accounts = await (ethereum as any).request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
-          const ethersProvider = new ethers.BrowserProvider(ethereum);
+          const ethersProvider = new ethers.BrowserProvider(ethereum as any);
           setProvider(ethersProvider);
           setAccount(accounts[0]);
           setIsConnected(true);
