@@ -104,7 +104,15 @@ The oracle logs important events:
 ### Gas Management
 - Monitor gas prices and adjust accordingly
 - Set appropriate gas limits for transactions
-- Maintain sufficient ETH balance for operations
+- Maintain sufficient cBTC balance for operations
+
+## Native cBTC Usage
+
+This system uses native cBTC (Citrea's native currency) for all operations:
+- Users bet with native cBTC (sent as msg.value)
+- Rewards are paid in native cBTC
+- No ERC-20 token interactions needed
+- Gas fees paid in cBTC
 
 ## Troubleshooting
 
@@ -117,7 +125,7 @@ The oracle logs important events:
 
 2. **"Transaction failed"**
    - Ensure sufficient gas
-   - Check private key has ETH balance
+   - Check private key has cBTC balance
    - Verify contract address is correct
 
 3. **"Contract call failed"**
