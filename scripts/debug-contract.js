@@ -1,4 +1,3 @@
-
 const hre = require("hardhat");
 require("dotenv").config();
 
@@ -13,6 +12,7 @@ async function main() {
 
   console.log('🔍 Debugging contract on Plume Testnet...');
   console.log('Contract Address:', contractAddress);
+  console.log('eOracle BTC/USD Feed: 0x1E89dA0C147C317f762A39B12808Db1CE42133E2');
   
   try {
     // Set up provider for Plume testnet
@@ -47,30 +47,49 @@ async function main() {
       console.log('❌ Failed to get owner:', error.message);
     }
     
+    // Test eOracle price feed
+    try {
+      const currentPrice = await contract.getLatestPrice();
+      const formattedPrice = Number(currentPrice) / 100000000;
+      console.log('✅ eOracle BTC Price:', `$${formattedPrice.toLocaleString()}`);
+      console.log('Raw Price (8 decimals):', currentPrice.toString());
+    } catch (error) {
+      console.log('❌ Failed to get price from eOracle:', error.message);
+    }
+    
     // Get current round info
     try {
       const currentRoundId = await contract.currentRoundId();
       console.log('Current Round ID:', currentRoundId.toString());
       
       const currentRound = await contract.getCurrentRound();
+      const startPrice = Number(currentRound.startPrice) / 100000000;
+      const endPrice = Number(currentRound.endPrice) / 100000000;
+      
       console.log('Current Round:', {
         startTime: new Date(Number(currentRound.startTime) * 1000).toLocaleString(),
         endTime: new Date(Number(currentRound.endTime) * 1000).toLocaleString(),
-        startPrice: currentRound.startPrice.toString(),
-        endPrice: currentRound.endPrice.toString(),
+        startPrice: `$${startPrice.toLocaleString()}`,
+        endPrice: endPrice > 0 ? `$${endPrice.toLocaleString()}` : 'Not set',
         isUp: currentRound.isUp,
         finalized: currentRound.finalized
       });
+      
+      // Check if round should be finalized
+      const now = Math.floor(Date.now() / 1000);
+      if (now >= Number(currentRound.endTime) && !currentRound.finalized) {
+        console.log('⚠️ Round should be finalized! Run: npm run round-manager', contractAddress);
+      }
     } catch (error) {
       console.log('❌ Failed to get round info:', error.message);
     }
     
-    // Check pool balance
+    // Check contract balance
     try {
-      const poolBalance = await contract.poolBalance();
-      console.log('Pool Balance:', hre.ethers.formatEther(poolBalance), 'PLUME');
+      const contractBalance = await provider.getBalance(contractAddress);
+      console.log('Contract Balance:', hre.ethers.formatEther(contractBalance), 'PLUME');
     } catch (error) {
-      console.log('❌ Failed to get pool balance:', error.message);
+      console.log('❌ Failed to get contract balance:', error.message);
     }
     
   } catch (error) {
