@@ -1,9 +1,8 @@
-
 # Bitcoin Price Prediction - Complete Setup Guide
 
 ## 🚀 Quick Start
 
-Follow these steps to get your Bitcoin Price Prediction app running:
+Follow these steps to get your Bitcoin Price Prediction app running with eOracle integration:
 
 ### 1. Install Dependencies
 
@@ -23,13 +22,13 @@ PRIVATE_KEY=your_private_key_here
 
 ### 3. Get Test Funds
 
-- Visit [Citrea Testnet Faucet](https://citrea.xyz/faucet)
-- Get cBTC tokens for gas fees and testing
+- Visit [Plume Testnet Faucet](https://faucet.plume.org)
+- Get PLUME tokens for gas fees and testing
 
 ### 4. Deploy Smart Contract
 
 ```bash
-# Deploy to Citrea Testnet
+# Deploy to Plume Testnet
 npm run deploy
 
 # Note the contract address from output
@@ -48,11 +47,11 @@ export const CONTRACTS = {
 };
 ```
 
-### 6. Start Price Oracle
+### 6. Start Round Manager
 
 ```bash
 # Replace with your deployed contract address
-npm run oracle 0x1234567890abcdef1234567890abcdef12345678
+npm run round-manager 0x1234567890abcdef1234567890abcdef12345678
 ```
 
 ### 7. Launch Frontend
@@ -71,7 +70,7 @@ npm run dev
 
 ### Smart Contract Development
 
-The project includes a complete smart contract setup using Hardhat:
+The project includes a complete smart contract setup using Hardhat with eOracle integration:
 
 ```bash
 # Compile contracts
@@ -81,22 +80,31 @@ npx hardhat compile
 npx hardhat test
 
 # Deploy to testnet
-npx hardhat run scripts/deploy.js --network citrea_testnet
+npx hardhat run scripts/deploy.js --network plume_testnet
 ```
 
-### Oracle System
+### eOracle Integration
 
-The price oracle fetches Bitcoin prices every 5 minutes from multiple sources:
+The system now uses eOracle's decentralized price feeds:
 
-- CoinDesk API (primary)
-- CoinGecko API (backup)
-- Coinbase API (fallback)
+- **Price Feed**: BTC/USD on Plume Testnet
+- **Address**: `0x1E89dA0C147C317f762A39B12808Db1CE42133E2`
+- **Decimals**: 8
+- **Updates**: Automatic via eOracle network
 
-Start the oracle after contract deployment:
+### Round Management System
+
+The round manager automatically handles price updates and round transitions:
 
 ```bash
-node scripts/priceOracle.js <CONTRACT_ADDRESS>
+node scripts/roundManager.js <CONTRACT_ADDRESS>
 ```
+
+Features:
+- Monitors round completion every 30 seconds
+- Fetches real-time prices from eOracle
+- Automatically starts new rounds
+- Handles reward distribution
 
 ### Frontend Configuration
 
@@ -107,13 +115,13 @@ Update these files after deployment:
 
 ### MetaMask Setup
 
-Add Citrea Testnet to MetaMask:
+Add Plume Testnet to MetaMask:
 
-- **Network Name**: Citrea Testnet
-- **RPC URL**: https://rpc.testnet.citrea.xyz
-- **Chain ID**: 5115
-- **Currency Symbol**: cBTC
-- **Block Explorer**: https://explorer.testnet.citrea.xyz/
+- **Network Name**: Plume Testnet
+- **RPC URL**: https://testnet-rpc.plume.org
+- **Chain ID**: 98867
+- **Currency Symbol**: PLUME
+- **Block Explorer**: https://testnet-explorer.plume.org/
 
 ## 🔍 Verification
 
@@ -143,58 +151,64 @@ This checks:
    - Ensure private key is valid hex string
 
 3. **"Network not found" errors**
-   - Verify Citrea testnet configuration
+   - Verify Plume testnet configuration
    - Check RPC URL is accessible
 
-4. **Oracle price submission fails**
+4. **eOracle price feed errors**
    - Ensure contract address is correct
-   - Check if wallet has sufficient cBTC for gas
-   - Verify APIs are accessible
+   - Check if wallet has sufficient PLUME for gas
+   - Verify eOracle feed is active
 
 ### Debug Mode
 
-Enable debug logging in oracle:
+Test eOracle connection and contract state:
 
-```javascript
-// In scripts/priceOracle.js, add:
-console.log('Debug: Fetched price:', price);
-console.log('Debug: Transaction hash:', tx.hash);
+```bash
+npm run debug-contract <CONTRACT_ADDRESS>
 ```
+
+This shows:
+- Current BTC price from eOracle
+- Round status and timing
+- Contract balance and owner
+- Price feed health
 
 ## 📊 Architecture Overview
 
 ### Smart Contract (Solidity)
-- `BitcoinPricePrediction.sol` - Main prediction contract
-- Uses native cBTC for bets and rewards
-- 5-minute rounds with automated finalization
+- `BitcoinPricePrediction.sol` - Main prediction contract with eOracle integration
+- Uses native PLUME for bets and rewards
+- 5-minute rounds with automated price feeds
 
-### Oracle System (Node.js)
-- `scripts/priceOracle.js` - Price fetching and submission
-- Multi-API redundancy for reliability
-- Automated 5-minute intervals
+### Round Management (Node.js)
+- `scripts/roundManager.js` - Automated round management
+- eOracle price feed integration
+- Real-time monitoring and round transitions
 
 ### Frontend (React + TypeScript)
 - `src/contexts/WalletContext.tsx` - Wallet integration
-- `src/hooks/useContract.ts` - Contract interactions
+- `src/hooks/useContract.ts` - Contract interactions with eOracle
 - `src/components/` - UI components
 
 ## 🎯 Usage Flow
 
 1. **Deploy Contract** → Get contract address
-2. **Start Oracle** → Begin price submissions
+2. **Start Round Manager** → Begin automated round management
 3. **Launch Frontend** → Users can place bets
-4. **Monitor** → Check oracle logs and user activity
+4. **Monitor** → Check round manager logs and user activity
 
 ## 🔒 Security Notes
 
 - Never commit private keys to version control
 - Use environment variables for sensitive data
 - Test thoroughly on testnet before mainnet
+- eOracle provides tamper-proof price data
 - Consider professional audit for production
 
 ## 📚 Additional Resources
 
-- [Citrea Documentation](https://docs.citrea.xyz/)
+- [eOracle Documentation](https://eoracle.io/docs)
+- [Plume Documentation](https://docs.plume.org/)
 - [Hardhat Documentation](https://hardhat.org/docs)
 - [ethers.js Documentation](https://docs.ethers.org/)
 
