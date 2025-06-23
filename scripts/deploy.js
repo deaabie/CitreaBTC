@@ -2,19 +2,11 @@
 const hre = require("hardhat");
 
 async function main() {
-  console.log("Deploying contracts...");
+  console.log("Deploying BitcoinPricePrediction contract...");
 
-  // Deploy cBTC Token first
-  const CBTCToken = await hre.ethers.getContractFactory("CBTCToken");
-  const cbtcToken = await CBTCToken.deploy();
-  await cbtcToken.waitForDeployment();
-  
-  const cbtcTokenAddress = await cbtcToken.getAddress();
-  console.log("cBTC Token deployed to:", cbtcTokenAddress);
-
-  // Deploy BitcoinPricePrediction contract
+  // Deploy BitcoinPricePrediction contract (no token needed, uses native cBTC)
   const BitcoinPricePrediction = await hre.ethers.getContractFactory("BitcoinPricePrediction");
-  const predictionContract = await BitcoinPricePrediction.deploy(cbtcTokenAddress);
+  const predictionContract = await BitcoinPricePrediction.deploy();
   await predictionContract.waitForDeployment();
   
   const predictionAddress = await predictionContract.getAddress();
@@ -22,13 +14,13 @@ async function main() {
 
   console.log("\nDeployment Summary:");
   console.log("==================");
-  console.log("cBTC Token:", cbtcTokenAddress);
   console.log("Prediction Contract:", predictionAddress);
   
   console.log("\nNext Steps:");
-  console.log("1. Update src/config/contracts.ts with these addresses");
-  console.log("2. Fund the prediction contract with cBTC tokens");
-  console.log("3. Start the price oracle");
+  console.log("1. Update src/config/contracts.ts with this address");
+  console.log("2. Start the price oracle with:");
+  console.log(`   node scripts/priceOracle.js ${predictionAddress}`);
+  console.log("3. Contract is ready to accept bets with native cBTC!");
 }
 
 main().catch((error) => {
