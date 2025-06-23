@@ -2,14 +2,14 @@
 import { useWallet } from '@/contexts/WalletContext';
 import { CONTRACTS } from '@/config/contracts';
 import { ethers } from 'ethers';
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 export const useContract = () => {
   const { provider, account } = useWallet();
   const [contract, setContract] = useState<ethers.Contract | null>(null);
 
   // Initialize contract when provider/account changes
-  useMemo(() => {
+  useEffect(() => {
     const initContract = async () => {
       if (!provider || !account) {
         setContract(null);
@@ -24,6 +24,7 @@ export const useContract = () => {
           signer
         );
         setContract(contractInstance);
+        console.log('Contract initialized successfully');
       } catch (error) {
         console.error('Failed to initialize contract:', error);
         setContract(null);
@@ -36,6 +37,7 @@ export const useContract = () => {
   const placeBet = useCallback(async (isUp: boolean, amount: string) => {
     if (!contract) throw new Error('Contract not initialized');
     
+    console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} cBTC`);
     const tx = await contract.placeBet(isUp, {
       value: ethers.parseEther(amount)
     });
@@ -45,6 +47,7 @@ export const useContract = () => {
   const claimRewards = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     
+    console.log('Claiming rewards...');
     const tx = await contract.claimRewards();
     return tx.wait();
   }, [contract]);
