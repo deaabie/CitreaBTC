@@ -143,17 +143,13 @@ Create `contracts/BitcoinPricePrediction.sol`:
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract BitcoinPricePrediction is Ownable {
-    // Token cBTC sebagai alat taruhan
-    IERC20 public cBTCToken;
-
     // Struktur untuk menyimpan taruhan pengguna
     struct Bet {
         address user;
-        uint256 amount; // Jumlah taruhan dalam cBTC
+        uint256 amount; // Jumlah taruhan dalam native cBTC
         bool isUp; // True untuk Up, False untuk Down
         uint256 round; // Ronde taruhan
     }
@@ -183,8 +179,7 @@ contract BitcoinPricePrediction is Ownable {
     event RewardClaimed(address user, uint256 amount);
     event PoolUpdated(uint256 newBalance, bool isDeposit);
 
-    constructor(address _cBTCToken) Ownable(msg.sender) {
-        cBTCToken = IERC20(_cBTCToken);
+    constructor() Ownable(msg.sender) {
         currentRoundId = 1;
         rounds[currentRoundId] = Round(block.timestamp, block.timestamp + ROUND_DURATION, 0, 0, false, false);
     }
@@ -218,18 +213,15 @@ contract BitcoinPricePrediction is Ownable {
     }
 
     // Pengguna memasang taruhan
-    function placeBet(uint256 _amount, bool _isUp) external {
-        require(_amount > 0, "Bet amount must be greater than 0");
+    function placeBet(bool _isUp) external payable {
+        require(msg.value > 0, "Bet amount must be greater than 0");
         Round storage currentRound = rounds[currentRoundId];
         require(block.timestamp < currentRound.endTime, "Round already ended");
         require(!currentRound.finalized, "Round already finalized");
 
-        // Transfer cBTC dari pengguna ke kontrak
-        require(cBTCToken.transferFrom(msg.sender, address(this), _amount), "cBTC transfer failed");
-
         // Simpan taruhan
-        bets[currentRoundId].push(Bet(msg.sender, _amount, _isUp, currentRoundId));
-        emit BetPlaced(msg.sender, currentRoundId, _amount, _isUp);
+        bets[currentRoundId].push(Bet(msg.sender, msg.value, _isUp, currentRoundId));
+        emit BetPlaced(msg.sender, currentRoundId, msg.value, _isUp);
     }
 
     // Distribusi hadiah untuk pemenang
@@ -256,15 +248,14 @@ contract BitcoinPricePrediction is Ownable {
         require(reward > 0, "No rewards to claim");
 
         pendingRewards[msg.sender] = 0;
-        require(cBTCToken.transfer(msg.sender, reward), "Reward transfer failed");
+        payable(msg.sender).transfer(reward);
         emit RewardClaimed(msg.sender, reward);
     }
 
     // Creator menambah saldo pool
-    function depositToPool(uint256 _amount) external onlyOwner {
-        require(_amount > 0, "Amount must be greater than 0");
-        require(cBTCToken.transferFrom(msg.sender, address(this), _amount), "cBTC transfer failed");
-        poolBalance += _amount;
+    function depositToPool() external payable onlyOwner {
+        require(msg.value > 0, "Amount must be greater than 0");
+        poolBalance += msg.value;
         emit PoolUpdated(poolBalance, true);
     }
 
@@ -272,7 +263,7 @@ contract BitcoinPricePrediction is Ownable {
     function withdrawFromPool(uint256 _amount) external onlyOwner {
         require(_amount <= poolBalance, "Insufficient pool balance");
         poolBalance -= _amount;
-        require(cBTCToken.transfer(msg.sender, _amount), "cBTC transfer failed");
+        payable(msg.sender).transfer(_amount);
         emit PoolUpdated(poolBalance, false);
     }
 
@@ -301,6 +292,9 @@ contract BitcoinPricePrediction is Ownable {
         }
         return userBets;
     }
+
+    // Fallback function to receive native cBTC
+    receive() external payable {}
 }
 ```
 
