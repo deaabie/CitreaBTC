@@ -9,9 +9,11 @@ export const CONTRACTS = {
       "function getUserBets(uint256 _roundId, address _user) external view returns (tuple(address user, uint256 amount, bool isUp, uint256 round)[])",
       "function pendingRewards(address) external view returns (uint256)",
       "function currentRoundId() external view returns (uint256)",
+      "function submitPriceAndStartRound(uint256 _price) external",
       "event BetPlaced(address indexed user, uint256 indexed roundId, uint256 amount, bool isUp)",
       "event RoundFinalized(uint256 indexed roundId, uint256 endTime, uint256 endPrice, bool isUp)",
-      "event RewardClaimed(address indexed user, uint256 amount)"
+      "event RewardClaimed(address indexed user, uint256 amount)",
+      "event RoundStarted(uint256 roundId, uint256 startTime, uint256 startPrice)"
     ]
   }
 };
