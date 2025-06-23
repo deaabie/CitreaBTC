@@ -1,7 +1,6 @@
-
 export const CONTRACTS = {
   BITCOIN_PREDICTION: {
-    address: import.meta.env.VITE_PREDICTION_CONTRACT_ADDRESS || "0x...", // Update after deployment
+    address: process.env.REACT_APP_PREDICTION_CONTRACT_ADDRESS || "0x...", // Update after deployment
     abi: [
       "function placeBet(bool _isUp) external payable",
       "function claimRewards() external",

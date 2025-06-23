@@ -3,7 +3,7 @@
 
 ## Overview
 
-This guide covers integrating the Bitcoin Price Prediction smart contract with the React frontend using native PLUME tokens and eOracle price feeds on Plume Testnet.
+This guide covers integrating the Bitcoin Price Prediction smart contract with the React frontend using native cBTC (Citrea's native currency).
 
 ## Key Components
 
@@ -11,103 +11,76 @@ This guide covers integrating the Bitcoin Price Prediction smart contract with t
 
 The `WalletContext` handles:
 - MetaMask connection
-- Plume testnet switching
-- Native PLUME balance checking
+- Citrea testnet switching
+- Native cBTC balance checking
 - Transaction signing
 
 ```typescript
-// Native PLUME balance is automatically handled
+// Native cBTC balance is automatically handled
 const { balance, account, provider } = useWallet();
 ```
 
-### 2. Contract Interaction with eOracle
+### 2. Contract Interaction
 
-All contract interactions use native PLUME and eOracle price feeds:
+All contract interactions use native cBTC:
 
 ```typescript
-// Place bet with native PLUME
+// Place bet with native cBTC
 const placeBet = async (isUp: boolean, amount: string) => {
   const tx = await contract.placeBet(isUp, {
-    value: ethers.parseEther(amount) // Native PLUME sent as msg.value
+    value: ethers.parseEther(amount) // Native cBTC sent as msg.value
   });
   return tx.wait();
 };
 
-// Get real-time price from eOracle
-const getLatestPrice = async () => {
-  const price = await contract.getLatestPrice();
-  return Number(price) / 100000000; // Convert from 8 decimals
-};
-
-// Claim rewards in native PLUME
+// Claim rewards in native cBTC
 const claimRewards = async () => {
   const tx = await contract.claimRewards();
   return tx.wait();
 };
 ```
 
-### 3. Real-time Price Updates
+### 3. Balance Management
 
-Integration with eOracle for live Bitcoin price data:
+No token approvals needed - everything uses native cBTC:
 
 ```typescript
-useEffect(() => {
-  const fetchPrice = async () => {
-    try {
-      const price = await getLatestPrice();
-      setCurrentPrice(price);
-    } catch (error) {
-      console.error('Failed to fetch price from eOracle:', error);
-    }
-  };
+// Check user's native cBTC balance
+const balance = await provider.getBalance(account);
+const formattedBalance = ethers.formatEther(balance);
 
-  // Update every 10 seconds
-  const interval = setInterval(fetchPrice, 10000);
-  return () => clearInterval(interval);
-}, []);
+// Check pending rewards (also in native cBTC)
+const pendingRewards = await contract.pendingRewards(account);
+const formattedRewards = ethers.formatEther(pendingRewards);
 ```
 
 ## Component Architecture
 
-### PredictionInterface Component
-- Shows real-time Bitcoin price from eOracle
-- Displays current round information
-- Handles both connected and demo states
-- Updates price every 10 seconds
-- Updates round data every 30 seconds
-
 ### BetForm Component
-- Accepts bet amount in PLUME
-- Validates user has sufficient native PLUME balance
-- Sends native PLUME with transaction
+- Accepts bet amount in cBTC
+- Validates user has sufficient native cBTC balance
+- Sends native cBTC with transaction
 
 ### RewardsClaim Component
-- Shows pending native PLUME rewards
+- Shows pending native cBTC rewards
 - Claims rewards directly to user's wallet
 - No token transfers required
 
 ### RoundTimer Component
-- Displays current round information from contract
-- Shows start/end prices in USD from eOracle
+- Displays current round information
+- Shows start/end prices in USD
 - Manages round transitions
 
 ## State Management
 
-### Price State
-```typescript
-const [currentPrice, setCurrentPrice] = useState(0);
-const [previousPrice, setPreviousPrice] = useState(0);
-const [isLoading, setIsLoading] = useState(true);
-```
-
 ### Round State
 ```typescript
 interface Round {
-  id: number;
   startTime: number;
   endTime: number;
-  startPrice: number; // From eOracle (converted from 8 decimals)
-  isActive: boolean;
+  startPrice: number;
+  endPrice: number;
+  isUp: boolean;
   finalized: boolean;
 }
 ```
@@ -116,46 +89,26 @@ interface Round {
 ```typescript
 interface UserState {
   account: string;
-  balance: string; // Native PLUME balance
-  pendingRewards: string; // Native PLUME rewards
+  balance: string; // Native cBTC balance
+  pendingRewards: string; // Native cBTC rewards
   currentBets: Bet[];
 }
 ```
 
-## eOracle Integration
-
-### Price Feed Configuration
-- **Feed**: BTC/USD
-- **Address**: `0x1E89dA0C147C317f762A39B12808Db1CE42133E2`
-- **Decimals**: 8
-- **Interface**: AggregatorV3Interface compatible
-
-### Price Data Handling
-```typescript
-// eOracle returns price with 8 decimals
-const formatPrice = (rawPrice: bigint) => {
-  return Number(rawPrice) / 100000000;
-};
-
-// Display formatted price
-const displayPrice = formatPrice(rawPrice).toLocaleString();
-```
-
 ## Error Handling
 
-### Common Errors with Solutions
-1. **eOracle Connection Failed**: Fallback to demo data
-2. **Insufficient Balance**: Clear error message to user
-3. **Network Issues**: Check Plume testnet connection
-4. **Contract Errors**: Validate round status before transactions
+### Common Errors
+1. **Insufficient Balance**: User doesn't have enough native cBTC
+2. **Network Issues**: Connection to Citrea testnet fails
+3. **Transaction Reverted**: Contract conditions not met
+4. **Gas Estimation**: Transaction gas calculation fails
 
 ### Error Messages
 ```typescript
 const errorMessages = {
-  EORACLE_FAILED: 'Unable to fetch live price data. Using demo mode.',
-  INSUFFICIENT_BALANCE: 'Insufficient PLUME balance for this bet',
-  NETWORK_ERROR: 'Please connect to Plume Testnet',
-  ROUND_ENDED: 'Current round has ended. Wait for new round.',
+  INSUFFICIENT_BALANCE: 'Insufficient cBTC balance for this bet',
+  NETWORK_ERROR: 'Please connect to Citrea Testnet',
+  TRANSACTION_FAILED: 'Transaction failed. Please try again.',
   CONTRACT_ERROR: 'Smart contract error. Check round status.'
 };
 ```
@@ -167,12 +120,14 @@ const errorMessages = {
 // Listen for bet placement events
 contract.on('BetPlaced', (user, roundId, amount, isUp) => {
   if (user === account) {
+    // Update user's bet history
     updateUserBets();
   }
 });
 
 // Listen for round finalization
 contract.on('RoundFinalized', (roundId, endTime, endPrice, isUp) => {
+  // Update round display and check for rewards
   updateCurrentRound();
   checkPendingRewards();
 });
@@ -180,130 +135,73 @@ contract.on('RoundFinalized', (roundId, endTime, endPrice, isUp) => {
 // Listen for reward claims
 contract.on('RewardClaimed', (user, amount) => {
   if (user === account) {
+    // Update user's balance and rewards
     updateBalance();
   }
 });
 ```
 
-### Automatic Updates
-- **Price Updates**: Every 10 seconds from eOracle
-- **Round Updates**: Every 30 seconds from contract
-- **Balance Updates**: After each transaction
-
 ## UI Components Integration
 
-### Real-time Price Display
+### Betting Interface
 ```tsx
-const PriceDisplay = () => {
-  const { getLatestPrice } = useContract();
-  const [price, setPrice] = useState(0);
-  const [loading, setLoading] = useState(true);
+const BetForm = () => {
+  const { balance } = useWallet();
+  const { placeBet } = useContract();
+  
+  const handleBet = async (amount: string, isUp: boolean) => {
+    // Validate native cBTC balance
+    if (parseFloat(amount) > parseFloat(balance)) {
+      throw new Error('Insufficient cBTC balance');
+    }
+    
+    // Place bet with native cBTC
+    await placeBet(isUp, amount);
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      <input 
+        type="number" 
+        placeholder="Amount in cBTC"
+        max={balance}
+      />
+      <button type="submit">Place Bet</button>
+    </form>
+  );
+};
+```
+
+### Rewards Display
+```tsx
+const RewardsDisplay = () => {
+  const { account } = useWallet();
+  const { getPendingRewards, claimRewards } = useContract();
+  const [rewards, setRewards] = useState('0');
   
   useEffect(() => {
-    const updatePrice = async () => {
-      try {
-        const latestPrice = await getLatestPrice();
-        setPrice(latestPrice);
-        setLoading(false);
-      } catch (error) {
-        console.error('Price fetch failed:', error);
-      }
-    };
-    
-    updatePrice();
-    const interval = setInterval(updatePrice, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    if (account) {
+      getPendingRewards(account).then(setRewards);
+    }
+  }, [account]);
   
   return (
     <div>
-      <h2>Bitcoin Price (eOracle)</h2>
-      <span>${loading ? 'Loading...' : price.toLocaleString()}</span>
-      <small>Live data from eOracle on Plume Testnet</small>
+      <p>Pending Rewards: {rewards} cBTC</p>
+      <button onClick={claimRewards}>
+        Claim Rewards
+      </button>
     </div>
   );
 };
 ```
 
-### Connected vs Demo States
-```tsx
-const Interface = () => {
-  const { isConnected } = useWallet();
-  
-  if (!isConnected) {
-    return <DemoInterface />; // Shows demo data and connection prompt
-  }
-  
-  return <LiveInterface />; // Shows real eOracle data and functionality
-};
-```
-
-## Performance Optimization
-
-### Efficient Price Updates
-- Cache previous price for change calculation
-- Use React Query for contract call optimization
-- Debounce rapid updates
-- Handle loading states gracefully
-
-### Gas Optimization
-- Estimate gas before transactions
-- Batch multiple contract reads when possible
-- Handle gas price fluctuations
-- Provide clear gas cost estimates
-
-## Security Considerations
-
-### eOracle Security
-- Price feed tamper-proof and decentralized
-- Multiple data sources aggregated
-- On-chain verification of price data
-- No external API dependencies
-
-### Frontend Security
-- Validate all user inputs
-- Check contract state before transactions
-- Handle edge cases gracefully
-- Never store private keys
-
-### Transaction Safety
-- Always check transaction receipts
-- Handle pending states properly
-- Implement retry mechanisms
-- Clear user feedback
-
-## Native PLUME Best Practices
-
-1. **Use msg.value** for sending PLUME to contracts
-2. **Check balances** before attempting transactions
-3. **Handle gas costs** in balance calculations
-4. **Display amounts clearly** in PLUME units
-5. **No token approvals** required
-6. **Real-time price updates** from eOracle
-
 ## Testing Integration
 
-### Price Feed Tests
-```typescript
-describe('eOracle Integration', () => {
-  it('should fetch real-time BTC price', async () => {
-    const price = await getLatestPrice();
-    expect(price).toBeGreaterThan(0);
-    expect(typeof price).toBe('number');
-  });
-  
-  it('should handle eOracle connection failure', async () => {
-    // Mock eOracle failure
-    const fallbackPrice = await getPriceWithFallback();
-    expect(fallbackPrice).toBeGreaterThan(0);
-  });
-});
-```
-
-### Contract Integration Tests
+### Frontend Tests
 ```typescript
 describe('Contract Integration', () => {
-  it('should place bet with native PLUME', async () => {
+  it('should place bet with native cBTC', async () => {
     const amount = '1.0';
     const initialBalance = await provider.getBalance(account);
     
@@ -312,35 +210,60 @@ describe('Contract Integration', () => {
     const finalBalance = await provider.getBalance(account);
     expect(finalBalance.lt(initialBalance)).toBe(true);
   });
+  
+  it('should claim rewards in native cBTC', async () => {
+    const initialBalance = await provider.getBalance(account);
+    
+    await claimRewards();
+    
+    const finalBalance = await provider.getBalance(account);
+    expect(finalBalance.gt(initialBalance)).toBe(true);
+  });
 });
 ```
 
+## Performance Optimization
+
+### Efficient Updates
+- Use React Query for caching contract calls
+- Batch multiple contract reads
+- Optimize re-renders with useMemo/useCallback
+
+### Gas Optimization
+- Estimate gas before transactions
+- Handle gas price fluctuations
+- Provide gas estimation to users
+
+## Security Considerations
+
+### Frontend Security
+- Validate all user inputs
+- Check contract state before transactions
+- Handle edge cases gracefully
+- Never store private keys in frontend
+
+### Transaction Safety
+- Always check transaction receipts
+- Handle pending states properly
+- Provide clear feedback to users
+- Implement retry mechanisms
+
+## Native cBTC Best Practices
+
+1. **Always use msg.value** for sending cBTC to contracts
+2. **Check balances** before attempting transactions
+3. **Handle gas costs** in balance calculations
+4. **Use proper error handling** for failed transfers
+5. **Display amounts clearly** in cBTC units
+6. **No token approvals** required or needed
+
 ## Deployment Checklist
 
-- [ ] Contract deployed with eOracle integration
-- [ ] Frontend connects to Plume testnet
-- [ ] eOracle price feed working
-- [ ] Real-time price updates functional
-- [ ] Native PLUME transactions working
-- [ ] Event listeners configured
+- [ ] Contract deployed with correct address in config
+- [ ] Frontend connects to Citrea testnet
+- [ ] Native cBTC transactions working
+- [ ] Event listeners properly configured
 - [ ] Error handling implemented
-- [ ] Demo mode for non-connected users
-- [ ] Round management system active
+- [ ] UI displays cBTC amounts correctly
 - [ ] Gas estimation working
-
-## Troubleshooting
-
-### eOracle Issues
-- **Price not updating**: Check network connection and feed address
-- **Invalid price data**: Verify eOracle feed is active
-- **Connection timeout**: Implement fallback mechanisms
-
-### Common Solutions
-- Refresh MetaMask connection
-- Switch to Plume testnet manually
-- Check contract deployment status
-- Verify eOracle feed health
-
----
-
-The frontend now fully integrates with eOracle for real-time Bitcoin price data on Plume testnet, providing users with accurate, tamper-proof price feeds for their predictions.
+- [ ] Rewards claiming functional
