@@ -1,9 +1,28 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+interface AggregatorV3Interface {
+    function decimals() external view returns (uint8);
+    function description() external view returns (string memory);
+    function version() external view returns (uint256);
+    function getRoundData(uint80 _roundId) external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
 
 contract BitcoinPricePrediction is Ownable, ReentrancyGuard {
     struct Bet {
@@ -27,6 +46,8 @@ contract BitcoinPricePrediction is Ownable, ReentrancyGuard {
     mapping(uint256 => Round) public rounds;
     mapping(uint256 => Bet[]) public bets;
     mapping(address => uint256) public pendingRewards;
+    
+    AggregatorV3Interface internal priceFeed;
 
     event RoundStarted(uint256 roundId, uint256 startTime, uint256 startPrice);
     event RoundFinalized(uint256 roundId, uint256 endTime, uint256 endPrice, bool isUp);
@@ -34,33 +55,58 @@ contract BitcoinPricePrediction is Ownable, ReentrancyGuard {
     event RewardClaimed(address user, uint256 amount);
 
     constructor() Ownable(msg.sender) {
+        // eOracle BTC/USD Price Feed on Plume Testnet
+        priceFeed = AggregatorV3Interface(0x1E89dA0C147C317f762A39B12808Db1CE42133E2);
         currentRoundId = 1;
-        rounds[currentRoundId] = Round(block.timestamp, block.timestamp + ROUND_DURATION, 0, 0, false, false);
+        
+        // Initialize first round with current price
+        uint256 currentPrice = getLatestPrice();
+        rounds[currentRoundId] = Round(
+            block.timestamp, 
+            block.timestamp + ROUND_DURATION, 
+            currentPrice, 
+            0, 
+            false, 
+            false
+        );
+        emit RoundStarted(currentRoundId, block.timestamp, currentPrice);
     }
 
-    function submitPriceAndStartRound(uint256 _price) external onlyOwner {
+    function getLatestPrice() public view returns (uint256) {
+        (, int256 price, , uint256 timeStamp, ) = priceFeed.latestRoundData();
+        require(timeStamp > 0, "Round not complete");
+        require(price > 0, "Invalid price");
+        
+        // eOracle returns price with 8 decimals, we keep it as is for precision
+        return uint256(price);
+    }
+
+    function startNewRound() external onlyOwner {
         Round storage currentRound = rounds[currentRoundId];
         require(block.timestamp >= currentRound.endTime, "Current round not finished");
         require(!currentRound.finalized, "Current round already finalized");
 
-        if (currentRound.startPrice > 0) {
-            currentRound.endPrice = _price;
-            currentRound.isUp = _price > currentRound.startPrice;
-            currentRound.finalized = true;
-            _distributeRewards(currentRoundId);
-            emit RoundFinalized(currentRoundId, block.timestamp, _price, currentRound.isUp);
-            currentRoundId++;
-        }
-
+        // Finalize current round
+        uint256 endPrice = getLatestPrice();
+        currentRound.endPrice = endPrice;
+        currentRound.isUp = endPrice > currentRound.startPrice;
+        currentRound.finalized = true;
+        
+        _distributeRewards(currentRoundId);
+        emit RoundFinalized(currentRoundId, block.timestamp, endPrice, currentRound.isUp);
+        
+        // Start new round
+        currentRoundId++;
+        uint256 newStartPrice = getLatestPrice();
         rounds[currentRoundId] = Round(
             block.timestamp,
             block.timestamp + ROUND_DURATION,
-            _price,
+            newStartPrice,
             0,
             false,
             false
         );
-        emit RoundStarted(currentRoundId, block.timestamp, _price);
+        emit RoundStarted(currentRoundId, block.timestamp, newStartPrice);
     }
 
     function placeBet(bool _isUp) external payable nonReentrant {
