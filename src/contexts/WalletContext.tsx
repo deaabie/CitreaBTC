@@ -35,6 +35,16 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [balance, setBalance] = useState('0.0');
   const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
 
+  const updateBalance = async (ethersProvider: ethers.BrowserProvider, accountAddress: string) => {
+    try {
+      const balance = await ethersProvider.getBalance(accountAddress);
+      setBalance(ethers.formatEther(balance));
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+      setBalance('0.0');
+    }
+  };
+
   const connectWallet = async () => {
     try {
       setConnecting(true);
@@ -45,6 +55,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         return;
       }
 
+      // First switch to Citrea testnet
+      await switchToTestnet();
+
       const accounts = await (ethereum as any).request({ method: 'eth_requestAccounts' });
       const ethersProvider = new ethers.BrowserProvider(ethereum as any);
       
@@ -52,12 +65,9 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setAccount(accounts[0]);
       setIsConnected(true);
       
-      // Get balance
-      const balance = await ethersProvider.getBalance(accounts[0]);
-      setBalance(ethers.formatEther(balance));
+      // Get balance from Citrea testnet
+      await updateBalance(ethersProvider, accounts[0]);
       
-      // Switch to Citrea testnet
-      await switchToTestnet();
     } catch (error) {
       console.error('Error connecting wallet:', error);
     } finally {
@@ -84,7 +94,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
       }
     } catch (error) {
-      console.error('Error switching to testnet:', error);
+      console.error('Error switching to Citrea testnet:', error);
     }
   };
 
@@ -101,18 +111,37 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (ethereum) {
         const accounts = await (ethereum as any).request({ method: 'eth_accounts' });
         if (accounts.length > 0) {
-          const ethersProvider = new ethers.BrowserProvider(ethereum as any);
-          setProvider(ethersProvider);
-          setAccount(accounts[0]);
-          setIsConnected(true);
-          
-          const balance = await ethersProvider.getBalance(accounts[0]);
-          setBalance(ethers.formatEther(balance));
+          // Check if we're on the correct network
+          const chainId = await (ethereum as any).request({ method: 'eth_chainId' });
+          if (chainId === CITREA_TESTNET.chainId) {
+            const ethersProvider = new ethers.BrowserProvider(ethereum as any);
+            setProvider(ethersProvider);
+            setAccount(accounts[0]);
+            setIsConnected(true);
+            
+            await updateBalance(ethersProvider, accounts[0]);
+          }
         }
       }
     };
 
     checkConnection();
+
+    // Listen for network changes
+    if ((window as any).ethereum) {
+      (window as any).ethereum.on('chainChanged', (chainId: string) => {
+        if (chainId !== CITREA_TESTNET.chainId) {
+          console.log('Wrong network detected, disconnecting...');
+          disconnectWallet();
+        }
+      });
+
+      (window as any).ethereum.on('accountsChanged', (accounts: string[]) => {
+        if (accounts.length === 0) {
+          disconnectWallet();
+        }
+      });
+    }
   }, []);
 
   return (

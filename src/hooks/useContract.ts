@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 export const useContract = () => {
   const { provider, account } = useWallet();
   const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   // Initialize contract when provider/account changes
   useEffect(() => {
@@ -16,6 +17,7 @@ export const useContract = () => {
         return;
       }
       
+      setIsInitializing(true);
       try {
         const signer = await provider.getSigner();
         const contractInstance = new ethers.Contract(
@@ -24,11 +26,14 @@ export const useContract = () => {
           signer
         );
         setContract(contractInstance);
-        console.log('Contract initialized successfully');
+        console.log('Contract initialized successfully on Citrea Testnet');
+        console.log('Contract address:', CONTRACTS.BITCOIN_PREDICTION.address);
         console.log('Using Blocksense BTC/USDT feed:', BLOCKSENSE_CONFIG.BTC_USDT_FEED.address);
       } catch (error) {
         console.error('Failed to initialize contract:', error);
         setContract(null);
+      } finally {
+        setIsInitializing(false);
       }
     };
 
@@ -55,7 +60,12 @@ export const useContract = () => {
 
   const getCurrentRound = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
-    return contract.getCurrentRound();
+    try {
+      return await contract.getCurrentRound();
+    } catch (error) {
+      console.error('Error getting current round:', error);
+      throw error;
+    }
   }, [contract]);
 
   const getUserBets = useCallback(async (roundId: number, userAddress: string) => {
@@ -65,20 +75,35 @@ export const useContract = () => {
 
   const getPendingRewards = useCallback(async (userAddress: string) => {
     if (!contract) throw new Error('Contract not initialized');
-    const rewards = await contract.pendingRewards(userAddress);
-    return ethers.formatEther(rewards);
+    try {
+      const rewards = await contract.pendingRewards(userAddress);
+      return ethers.formatEther(rewards);
+    } catch (error) {
+      console.error('Error getting pending rewards:', error);
+      return '0';
+    }
   }, [contract]);
 
   const getCurrentRoundId = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
-    return contract.currentRoundId();
+    try {
+      return await contract.currentRoundId();
+    } catch (error) {
+      console.error('Error getting current round ID:', error);
+      throw error;
+    }
   }, [contract]);
 
   const getLatestPrice = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
-    const price = await contract.getLatestPrice();
-    // Blocksense returns price with 8 decimals (10^8 units)
-    return Number(price) / 100000000;
+    try {
+      const price = await contract.getLatestPrice();
+      // Blocksense returns price with 8 decimals (10^8 units)
+      return Number(price) / 100000000;
+    } catch (error) {
+      console.error('Error getting latest price from Blocksense:', error);
+      throw error;
+    }
   }, [contract]);
 
   const getPoolBalance = useCallback(async () => {
@@ -112,6 +137,7 @@ export const useContract = () => {
 
   return {
     contract,
+    isInitializing,
     placeBet,
     claimRewards,
     getCurrentRound,

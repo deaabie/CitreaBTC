@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowUp, ArrowDown, Bitcoin, Wallet, Clock, Trophy, Users } from 'lucide-react';
+import { ArrowUp, ArrowDown, Bitcoin, Wallet, Clock, Trophy, Users, AlertCircle } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useContract } from '@/hooks/useContract';
 import { BLOCKSENSE_CONFIG } from '@/config/contracts';
@@ -12,20 +12,27 @@ import RewardsClaim from './RewardsClaim';
 
 const PredictionInterface = () => {
   const { isConnected } = useWallet();
-  const { getLatestPrice, getCurrentRound, getCurrentRoundId } = useContract();
+  const { getLatestPrice, getCurrentRound, getCurrentRoundId, isInitializing } = useContract();
   
   const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [previousPrice, setPreviousPrice] = useState<number>(0);
   const [currentRound, setCurrentRound] = useState<any>(null);
   const [roundId, setRoundId] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch real-time data from Blocksense
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected || isInitializing) {
+      setLoading(true);
+      return;
+    }
 
     const fetchData = async () => {
       try {
+        setError(null);
+        console.log('Fetching data from Blocksense and contract...');
+        
         const [price, round, id] = await Promise.all([
           getLatestPrice(),
           getCurrentRound(),
@@ -37,8 +44,16 @@ const PredictionInterface = () => {
         setCurrentRound(round);
         setRoundId(Number(id));
         setLoading(false);
-      } catch (error) {
+        
+        console.log('Data fetched successfully:', {
+          price: `$${price.toLocaleString()}`,
+          roundId: Number(id),
+          roundFinalized: round.finalized
+        });
+      } catch (error: any) {
         console.error('Error fetching real-time data:', error);
+        setError(error.message || 'Failed to fetch data from Blocksense');
+        setLoading(false);
       }
     };
 
@@ -48,7 +63,7 @@ const PredictionInterface = () => {
     // Update every 30 seconds
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [isConnected, getLatestPrice, getCurrentRound, getCurrentRoundId, currentPrice]);
+  }, [isConnected, isInitializing, getLatestPrice, getCurrentRound, getCurrentRoundId, currentPrice]);
 
   const priceDirection = currentPrice > previousPrice ? 'up' : 'down';
   const priceChange = previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice * 100).toFixed(2) : '0.00';
@@ -113,14 +128,14 @@ const PredictionInterface = () => {
             </div>
             <div className="flex items-center justify-center gap-4">
               <span className="text-4xl font-mono font-bold text-white">
-                $45,000.00
+                $95,000.00
               </span>
               <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-green-500/20 text-green-400">
                 <ArrowUp className="w-4 h-4" />
                 <span className="font-mono">+2.5%</span>
               </div>
             </div>
-            <p className="text-gray-400 mt-2">Connect wallet to see live Blocksense data</p>
+            <p className="text-gray-400 mt-2">Connect wallet to see live Blocksense data from Citrea Testnet</p>
           </div>
         </CardContent>
       </Card>
@@ -134,7 +149,7 @@ const PredictionInterface = () => {
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-sm flex items-center justify-center font-bold">1</div>
-              <p className="text-gray-300">Connect your MetaMask wallet to Citrea Testnet</p>
+              <p className="text-gray-300">Connect your MetaMask wallet to Citrea Testnet (Chain ID: 5115)</p>
             </div>
             <div className="flex items-start gap-3">
               <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-sm flex items-center justify-center font-bold">2</div>
@@ -165,10 +180,10 @@ const PredictionInterface = () => {
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <p className="text-gray-400">Chain ID:</p>
-              <p className="text-white font-mono">5115 (0x13FB)</p>
+              <p className="text-white font-mono">5115</p>
               
-              <p className="text-gray-400">Currency:</p>
-              <p className="text-white font-mono">cBTC</p>
+              <p className="text-gray-400">RPC URL:</p>
+              <p className="text-white font-mono text-sm">https://rpc.testnet.citrea.xyz</p>
               
               <p className="text-gray-400">Round Duration:</p>
               <p className="text-white font-mono">15 minutes</p>
@@ -193,7 +208,7 @@ const PredictionInterface = () => {
     return <DemoInterface />;
   }
 
-  if (loading) {
+  if (loading || isInitializing) {
     return (
       <div className="max-w-6xl mx-auto space-y-8">
         <div className="text-center py-12">
@@ -203,10 +218,33 @@ const PredictionInterface = () => {
             </div>
             <div>
               <h1 className="text-4xl font-bold text-white">Loading...</h1>
-              <p className="text-xl text-orange-300">Fetching live data from Blocksense</p>
+              <p className="text-xl text-orange-300">
+                {isInitializing ? 'Initializing contract on Citrea Testnet...' : 'Fetching live data from Blocksense...'}
+              </p>
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-8">
+        <Card className="bg-red-900/20 border-red-500/30 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 text-red-400">
+              <AlertCircle className="w-8 h-8" />
+              <div>
+                <h3 className="text-xl font-bold">Connection Error</h3>
+                <p className="text-red-300">{error}</p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Make sure you're connected to Citrea Testnet (Chain ID: 5115)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -236,7 +274,7 @@ const PredictionInterface = () => {
                 </div>
               )}
             </div>
-            <p className="text-gray-400 mt-2">Real-time BTC/USDT price from Blocksense oracle</p>
+            <p className="text-gray-400 mt-2">Real-time BTC/USDT price from Blocksense oracle on Citrea Testnet</p>
           </div>
         </CardContent>
       </Card>
