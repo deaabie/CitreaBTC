@@ -1,7 +1,7 @@
 
 export const CONTRACTS = {
   BITCOIN_PREDICTION: {
-    address: import.meta.env.VITE_PREDICTION_CONTRACT_ADDRESS || "0x...", // Update after deployment
+    address: "0xA8c3c8DC0821702aBcC2d9aD992afd217D9A2Cb4", // Updated with your contract address
     abi: [
       "function placeBet(bool _isUp) external payable",
       "function claimRewards() external",

@@ -16,16 +16,16 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-const PLUME_TESTNET = {
-  chainId: '0x18233', // 98867 in hex
-  chainName: 'Plume Testnet',
+const CITREA_TESTNET = {
+  chainId: '0x13FB', // 5115 in hex
+  chainName: 'Citrea Testnet',
   nativeCurrency: {
-    name: 'PLUME',
-    symbol: 'PLUME',
+    name: 'cBTC',
+    symbol: 'cBTC',
     decimals: 18,
   },
-  rpcUrls: ['https://testnet-rpc.plume.org'],
-  blockExplorerUrls: ['https://testnet-explorer.plume.org/'],
+  rpcUrls: ['https://rpc.testnet.citrea.xyz'],
+  blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
 };
 
 export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -56,7 +56,7 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const balance = await ethersProvider.getBalance(accounts[0]);
       setBalance(ethers.formatEther(balance));
       
-      // Switch to Plume testnet
+      // Switch to Citrea testnet
       await switchToTestnet();
     } catch (error) {
       console.error('Error connecting wallet:', error);
@@ -73,13 +73,13 @@ export const WalletProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       try {
         await ethereum.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: PLUME_TESTNET.chainId }],
+          params: [{ chainId: CITREA_TESTNET.chainId }],
         });
       } catch (switchError: any) {
         if (switchError.code === 4902) {
           await ethereum.request({
             method: 'wallet_addEthereumChain',
-            params: [PLUME_TESTNET],
+            params: [CITREA_TESTNET],
           });
         }
       }

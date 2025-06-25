@@ -1,29 +1,80 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useWallet } from '@/contexts/WalletContext';
+import { useContract } from '@/hooks/useContract';
 
 const RewardsClaim = () => {
-  const [pendingRewards, setPendingRewards] = useState(0.25);
+  const [pendingRewards, setPendingRewards] = useState('0');
   const [claiming, setClaiming] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { account, isConnected } = useWallet();
+  const { getPendingRewards, claimRewards } = useContract();
+
+  useEffect(() => {
+    const fetchRewards = async () => {
+      if (!isConnected || !account) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const rewards = await getPendingRewards(account);
+        setPendingRewards(rewards);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching pending rewards:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchRewards();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchRewards, 30000);
+    return () => clearInterval(interval);
+  }, [isConnected, account, getPendingRewards]);
 
   const handleClaimRewards = async () => {
-    if (pendingRewards <= 0) return;
+    if (parseFloat(pendingRewards) <= 0) return;
 
     setClaiming(true);
     
-    // Simulate claiming rewards (replace with actual contract interaction)
-    setTimeout(() => {
+    try {
+      await claimRewards();
       toast({
         title: "Rewards Claimed!",
         description: `${pendingRewards} cBTC claimed successfully`,
       });
-      setPendingRewards(0);
+      setPendingRewards('0');
+    } catch (error: any) {
+      console.error('Error claiming rewards:', error);
+      toast({
+        title: "Claim Failed",
+        description: error.message || "Failed to claim rewards",
+        variant: "destructive"
+      });
+    } finally {
       setClaiming(false);
-    }, 2000);
+    }
   };
+
+  if (loading) {
+    return (
+      <Card className="bg-black/40 border-orange-500/30 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-orange-400">Your Rewards</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center">
+            <p className="text-gray-400">Loading rewards...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="bg-black/40 border-orange-500/30 backdrop-blur-sm">
@@ -34,31 +85,21 @@ const RewardsClaim = () => {
         <div className="text-center">
           <p className="text-gray-400 text-sm">Pending Rewards</p>
           <p className="text-3xl font-mono font-bold text-green-400">
-            {pendingRewards.toFixed(4)} cBTC
+            {parseFloat(pendingRewards).toFixed(4)} cBTC
           </p>
         </div>
 
         <Button
           onClick={handleClaimRewards}
-          disabled={claiming || pendingRewards <= 0}
+          disabled={claiming || parseFloat(pendingRewards) <= 0}
           className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3"
         >
           {claiming ? 'Claiming...' : 'Claim Rewards'}
         </Button>
 
-        <div className="grid grid-cols-3 gap-4 text-center text-sm">
-          <div>
-            <p className="text-gray-400">Total Won</p>
-            <p className="text-green-400 font-mono">1.25 cBTC</p>
-          </div>
-          <div>
-            <p className="text-gray-400">Total Bet</p>
-            <p className="text-white font-mono">2.10 cBTC</p>
-          </div>
-          <div>
-            <p className="text-gray-400">Win Rate</p>
-            <p className="text-orange-400 font-mono">62%</p>
-          </div>
+        <div className="text-center text-sm text-gray-400">
+          <p>Contract: 0xA8c3c8DC0821702aBcC2d9aD992afd217D9A2Cb4</p>
+          <p>Network: Citrea Testnet (Chain ID: 5115)</p>
         </div>
       </CardContent>
     </Card>
