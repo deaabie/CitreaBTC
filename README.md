@@ -353,28 +353,29 @@ Update `hardhat.config.js`:
 
 ```javascript
 require("@nomicfoundation/hardhat-toolbox");
+require("dotenv").config();
+require("@nomicfoundation/hardhat-verify"); // Pastikan plugin ini terinstal
 
-/** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.20",
   networks: {
-    citrea_testnet: {
-      url: "https://rpc.testnet.citrea.xyz",
+    citreaTestnet: {
+      url: "https://rpc.testnet.citrea.xyz", // Ganti dengan RPC URL resmi
       chainId: 5115,
-      accounts: [process.env.PRIVATE_KEY] // Add your private key in .env
+      accounts: [process.env.PRIVATE_KEY]
     }
   },
   etherscan: {
     apiKey: {
-      citrea_testnet: "not-needed"
+      citreaTestnet: "placeholder" // Ganti dengan API key jika diperlukan, atau gunakan string placeholder
     },
     customChains: [
       {
-        network: "citrea_testnet",
+        network: "citreaTestnet",
         chainId: 5115,
         urls: {
-          apiURL: "https://explorer.testnet.citrea.xyz/api",
-          browserURL: "https://explorer.testnet.citrea.xyz"
+          apiURL: "https://explorer.testnet.citrea.xyz/api", // Ganti dengan URL resmi
+          browserURL: "https://explorer.testnet.citrea.xyz" // Ganti dengan URL resmi
         }
       }
     ]
@@ -390,24 +391,17 @@ Create `scripts/deploy.js`:
 const hre = require("hardhat");
 
 async function main() {
-  console.log("Deploying BitcoinPricePrediction contract...");
-
+  const priceFeedAddress = "0x25ef0a9b5041b2Cd96dcb1692B8C553aB2780BA3"; // Blocksense BTC/USDT
   const BitcoinPricePrediction = await hre.ethers.getContractFactory("BitcoinPricePrediction");
-  const contract = await BitcoinPricePrediction.deploy();
-
-  await contract.waitForDeployment();
-
-  console.log("BitcoinPricePrediction deployed to:", await contract.getAddress());
-  console.log("Remember to:");
-  console.log("1. Fund the contract with native cBTC for rewards");
-  console.log("2. Set up automated price submission");
-  console.log("3. Update frontend with contract address");
+  const contract = await BitcoinPricePrediction.deploy(priceFeedAddress);
+  console.log("BitcoinPricePrediction deployed to:", contract.target);
 }
 
 main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
 ```
 
 ### Step 5: Deploy Contract
