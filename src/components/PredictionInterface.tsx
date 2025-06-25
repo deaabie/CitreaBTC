@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useContract } from '@/hooks/useContract';
@@ -14,6 +13,8 @@ import CurrentRoundInfo from './prediction/CurrentRoundInfo';
 import AutoModeToggle from './prediction/AutoModeToggle';
 import ManualRoundTransition from './prediction/ManualRoundTransition';
 import DebugInfo from './prediction/DebugInfo';
+import UserBetsTable from './prediction/UserBetsTable';
+import PoolBalance from './prediction/PoolBalance';
 
 const PredictionInterface = () => {
   const { isConnected, connectWallet } = useWallet();
@@ -213,6 +214,8 @@ const PredictionInterface = () => {
 
       <PriceDisplay currentPrice={currentPrice} previousPrice={previousPrice} />
 
+      <PoolBalance />
+
       <ManualRoundTransition
         isVisible={!isAutoMode && roundNeedsTransition}
         roundId={roundId}
@@ -234,6 +237,8 @@ const PredictionInterface = () => {
           />
         </div>
       )}
+
+      <UserBetsTable currentRoundId={roundId} />
 
       <RewardsClaim />
 
