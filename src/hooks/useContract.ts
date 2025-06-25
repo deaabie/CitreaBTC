@@ -42,26 +42,81 @@ export const useContract = () => {
 
   const placeBet = useCallback(async (isUp: boolean, amount: string) => {
     if (!contract) throw new Error('Contract not initialized');
+    if (!account) throw new Error('Wallet not connected');
     
     console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} cBTC`);
-    const tx = await contract.placeBet(isUp, {
-      value: ethers.parseEther(amount)
-    });
-    return tx.wait();
-  }, [contract]);
+    
+    try {
+      // Estimate gas first
+      const gasEstimate = await contract.placeBet.estimateGas(isUp, {
+        value: ethers.parseEther(amount)
+      });
+      
+      console.log('Gas estimate:', gasEstimate.toString());
+      
+      // Place the bet with estimated gas
+      const tx = await contract.placeBet(isUp, {
+        value: ethers.parseEther(amount),
+        gasLimit: gasEstimate * BigInt(120) / BigInt(100) // Add 20% buffer
+      });
+      
+      console.log('Transaction hash:', tx.hash);
+      const receipt = await tx.wait();
+      console.log('Transaction confirmed:', receipt);
+      
+      return receipt;
+    } catch (error: any) {
+      console.error('Error placing bet:', error);
+      if (error.code === 'ACTION_REJECTED') {
+        throw new Error('Transaction was rejected by user');
+      } else if (error.message.includes('insufficient funds')) {
+        throw new Error('Insufficient cBTC balance');
+      } else if (error.message.includes('Round already ended')) {
+        throw new Error('Round has already ended');
+      } else {
+        throw new Error(error.message || 'Failed to place bet');
+      }
+    }
+  }, [contract, account]);
 
   const claimRewards = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     
     console.log('Claiming rewards...');
-    const tx = await contract.claimRewards();
-    return tx.wait();
+    try {
+      const tx = await contract.claimRewards();
+      const receipt = await tx.wait();
+      console.log('Rewards claimed successfully:', receipt);
+      return receipt;
+    } catch (error: any) {
+      console.error('Error claiming rewards:', error);
+      if (error.message.includes('No rewards to claim')) {
+        throw new Error('No rewards available to claim');
+      }
+      throw error;
+    }
   }, [contract]);
 
   const getCurrentRound = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     try {
-      return await contract.getCurrentRound();
+      const round = await contract.getCurrentRound();
+      console.log('Current round data:', {
+        startTime: Number(round.startTime),
+        endTime: Number(round.endTime),
+        startPrice: Number(round.startPrice),
+        endPrice: Number(round.endPrice),
+        isUp: round.isUp,
+        finalized: round.finalized
+      });
+      return {
+        startTime: Number(round.startTime),
+        endTime: Number(round.endTime),
+        startPrice: Number(round.startPrice),
+        endPrice: Number(round.endPrice),
+        isUp: round.isUp,
+        finalized: round.finalized
+      };
     } catch (error) {
       console.error('Error getting current round:', error);
       throw error;
@@ -87,7 +142,8 @@ export const useContract = () => {
   const getCurrentRoundId = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     try {
-      return await contract.currentRoundId();
+      const roundId = await contract.currentRoundId();
+      return Number(roundId);
     } catch (error) {
       console.error('Error getting current round ID:', error);
       throw error;

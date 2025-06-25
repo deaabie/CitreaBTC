@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useContract } from '@/hooks/useContract';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface BetFormProps {
   roundId: number;
@@ -15,8 +17,19 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
   const [selectedPrediction, setSelectedPrediction] = useState<'up' | 'down' | null>(null);
   const [placing, setPlacing] = useState(false);
   const { toast } = useToast();
+  const { placeBet } = useContract();
+  const { account, isConnected } = useWallet();
 
   const handlePlaceBet = async () => {
+    if (!isConnected || !account) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet first",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!selectedPrediction) {
       toast({
         title: "Select Prediction",
@@ -37,16 +50,28 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
 
     setPlacing(true);
     
-    // Simulate placing bet (replace with actual contract interaction)
-    setTimeout(() => {
+    try {
+      console.log(`Placing bet: ${selectedPrediction.toUpperCase()}, Amount: ${betAmount} cBTC`);
+      const isUp = selectedPrediction === 'up';
+      await placeBet(isUp, betAmount);
+      
       toast({
-        title: "Bet Placed!",
+        title: "Bet Placed Successfully!",
         description: `${betAmount} cBTC bet on ${selectedPrediction.toUpperCase()} for round ${roundId}`,
       });
-      setPlacing(false);
+      
       setSelectedPrediction(null);
       setBetAmount('0.1');
-    }, 2000);
+    } catch (error: any) {
+      console.error('Error placing bet:', error);
+      toast({
+        title: "Bet Failed",
+        description: error.message || "Failed to place bet. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setPlacing(false);
+    }
   };
 
   return (
@@ -105,10 +130,10 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
 
         <Button
           onClick={handlePlaceBet}
-          disabled={placing || !selectedPrediction}
+          disabled={placing || !selectedPrediction || !isConnected}
           className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-bold py-3"
         >
-          {placing ? 'Placing Bet...' : 'Place Bet'}
+          {placing ? 'Placing Bet...' : !isConnected ? 'Connect Wallet' : 'Place Bet'}
         </Button>
 
         <div className="text-xs text-gray-400 text-center">

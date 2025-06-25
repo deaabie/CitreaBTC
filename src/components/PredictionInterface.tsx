@@ -11,7 +11,7 @@ import RoundTimer from './RoundTimer';
 import RewardsClaim from './RewardsClaim';
 
 const PredictionInterface = () => {
-  const { isConnected } = useWallet();
+  const { isConnected, connectWallet } = useWallet();
   const { getLatestPrice, getCurrentRound, getCurrentRoundId, isInitializing } = useContract();
   
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -42,13 +42,14 @@ const PredictionInterface = () => {
         setPreviousPrice(currentPrice);
         setCurrentPrice(price);
         setCurrentRound(round);
-        setRoundId(Number(id));
+        setRoundId(id);
         setLoading(false);
         
         console.log('Data fetched successfully:', {
           price: `$${price.toLocaleString()}`,
-          roundId: Number(id),
-          roundFinalized: round.finalized
+          roundId: id,
+          roundFinalized: round.finalized,
+          roundEndTime: new Date(round.endTime * 1000).toLocaleString()
         });
       } catch (error: any) {
         console.error('Error fetching real-time data:', error);
@@ -164,7 +165,7 @@ const PredictionInterface = () => {
               <p className="text-gray-300">Wait 15 minutes for round to end and claim rewards</p>
             </div>
           </div>
-          <Button className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600">
+          <Button onClick={connectWallet} className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600">
             <Wallet className="w-4 h-4 mr-2" />
             Connect Wallet to Start
           </Button>
@@ -287,11 +288,11 @@ const PredictionInterface = () => {
               <CardTitle className="text-orange-400">Current Round #{roundId}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RoundTimer endTime={Number(currentRound.endTime) * 1000} />
+              <RoundTimer endTime={currentRound.endTime} />
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-400">Start Price</p>
-                  <p className="text-white font-mono">{formatPrice(Number(currentRound.startPrice) / 100000000)}</p>
+                  <p className="text-white font-mono">{formatPrice(currentRound.startPrice / 100000000)}</p>
                 </div>
                 <div>
                   <p className="text-gray-400">Current Price</p>

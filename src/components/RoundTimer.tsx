@@ -2,26 +2,32 @@
 import React, { useState, useEffect } from 'react';
 
 interface RoundTimerProps {
-  endTime: number;
+  endTime: number; // Unix timestamp in seconds
 }
 
 const RoundTimer: React.FC<RoundTimerProps> = ({ endTime }) => {
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
+    const updateTimer = () => {
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
       const remaining = Math.max(0, endTime - now);
       setTimeLeft(remaining);
-    }, 1000);
+    };
+
+    // Initial update
+    updateTimer();
+
+    // Update every second
+    const interval = setInterval(updateTimer, 1000);
 
     return () => clearInterval(interval);
   }, [endTime]);
 
-  const minutes = Math.floor(timeLeft / (1000 * 60));
-  const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
 
-  const isExpiringSoon = timeLeft < 60000; // Less than 1 minute
+  const isExpiringSoon = timeLeft < 60; // Less than 1 minute
 
   return (
     <div className="text-center">
@@ -31,9 +37,14 @@ const RoundTimer: React.FC<RoundTimerProps> = ({ endTime }) => {
       }`}>
         {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
       </div>
-      {isExpiringSoon && (
+      {isExpiringSoon && timeLeft > 0 && (
         <p className="text-red-400 text-xs mt-1 animate-pulse">
           Round ending soon!
+        </p>
+      )}
+      {timeLeft === 0 && (
+        <p className="text-gray-400 text-xs mt-1">
+          Round ended
         </p>
       )}
     </div>
