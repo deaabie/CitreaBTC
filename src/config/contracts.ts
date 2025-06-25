@@ -1,6 +1,7 @@
+
 export const CONTRACTS = {
   BITCOIN_PREDICTION: {
-    address: process.env.REACT_APP_PREDICTION_CONTRACT_ADDRESS || "0x...", // Update after deployment
+    address: import.meta.env.VITE_PREDICTION_CONTRACT_ADDRESS || "0x...", // Update after deployment
     abi: [
       "function placeBet(bool _isUp) external payable",
       "function claimRewards() external",
@@ -10,30 +11,36 @@ export const CONTRACTS = {
       "function currentRoundId() external view returns (uint256)",
       "function startNewRound() external",
       "function getLatestPrice() external view returns (uint256)",
+      "function poolBalance() external view returns (uint256)",
+      "function depositToPool() external payable",
+      "function withdrawFromPool(uint256 _amount) external",
       "event BetPlaced(address indexed user, uint256 indexed roundId, uint256 amount, bool isUp)",
       "event RoundFinalized(uint256 indexed roundId, uint256 endTime, uint256 endPrice, bool isUp)",
       "event RewardClaimed(address indexed user, uint256 amount)",
-      "event RoundStarted(uint256 roundId, uint256 startTime, uint256 startPrice)"
+      "event RoundStarted(uint256 roundId, uint256 startTime, uint256 startPrice)",
+      "event PoolUpdated(uint256 newBalance, bool isDeposit)"
     ]
   }
 };
 
-export const PLUME_TESTNET = {
-  chainId: 98867,
-  chainName: 'Plume Testnet',
+export const CITREA_TESTNET = {
+  chainId: 5115,
+  chainName: 'Citrea Testnet',
   nativeCurrency: {
-    name: 'PLUME',
-    symbol: 'PLUME',
+    name: 'cBTC',
+    symbol: 'cBTC',
     decimals: 18,
   },
-  rpcUrls: ['https://testnet-rpc.plume.org'],
-  blockExplorerUrls: ['https://testnet-explorer.plume.org/'],
+  rpcUrls: ['https://rpc.testnet.citrea.xyz'],
+  blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
 };
 
-export const EORACLE_CONFIG = {
-  BTC_USD_FEED: {
-    address: '0x1E89dA0C147C317f762A39B12808Db1CE42133E2',
-    decimals: 8,
-    description: 'BTC/USD Price Feed'
+export const BLOCKSENSE_CONFIG = {
+  BTC_USDT_FEED: {
+    address: '0x25ef0a9b5041b2Cd96dcb1692B8C553aB2780BA3',
+    decimals: 8, // Blocksense returns price in 10^8 units
+    description: 'BTC/USDT Price Feed',
+    roundDuration: 15 * 60, // 15 minutes in seconds
+    maxPriceAge: 30 * 60 // 30 minutes in seconds
   }
 };

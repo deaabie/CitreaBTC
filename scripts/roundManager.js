@@ -1,3 +1,4 @@
+
 const hre = require("hardhat");
 require("dotenv").config();
 
@@ -8,27 +9,28 @@ class RoundManager {
   }
 
   async initialize() {
-    // Set up provider for Plume testnet
-    const provider = new hre.ethers.JsonRpcProvider("https://testnet-rpc.plume.org");
+    // Set up provider for Citrea testnet
+    const provider = new hre.ethers.JsonRpcProvider("https://rpc.testnet.citrea.xyz");
     const wallet = new hre.ethers.Wallet(process.env.PRIVATE_KEY, provider);
     
     const BitcoinPricePrediction = await hre.ethers.getContractFactory("BitcoinPricePrediction");
     this.contract = BitcoinPricePrediction.attach(this.contractAddress).connect(wallet);
     
     console.log("Round Manager initialized with contract:", this.contractAddress);
-    console.log("Network: Plume Testnet (Chain ID: 98867)");
+    console.log("Network: Citrea Testnet (Chain ID: 5115)");
     console.log("Using wallet:", wallet.address);
-    console.log("eOracle Feed: 0x1E89dA0C147C317f762A39B12808Db1CE42133E2");
+    console.log("Blocksense Feed: 0x25ef0a9b5041b2Cd96dcb1692B8C553aB2780BA3");
+    console.log("Round Duration: 15 minutes");
   }
 
   async getCurrentPrice() {
     try {
       const price = await this.contract.getLatestPrice();
-      // eOracle returns price with 8 decimals
+      // Blocksense returns price with 8 decimals (10^8 units)
       const formattedPrice = Number(price) / 100000000;
       return { raw: price, formatted: formattedPrice };
     } catch (error) {
-      console.error('Error fetching price from eOracle:', error.message);
+      console.error('Error fetching price from Blocksense:', error.message);
       throw error;
     }
   }
@@ -36,7 +38,7 @@ class RoundManager {
   async startNewRound() {
     try {
       const priceData = await this.getCurrentPrice();
-      console.log(`Starting new round with BTC price: $${priceData.formatted.toLocaleString()}`);
+      console.log(`Starting new round with BTC/USDT price: $${priceData.formatted.toLocaleString()}`);
       
       const tx = await this.contract.startNewRound({
         gasLimit: 500000
@@ -69,7 +71,7 @@ class RoundManager {
         
         // Show current price for monitoring
         const priceData = await this.getCurrentPrice();
-        console.log(`Current BTC price: $${priceData.formatted.toLocaleString()}`);
+        console.log(`Current BTC/USDT price: $${priceData.formatted.toLocaleString()}`);
       }
     } catch (error) {
       console.error('Error checking round status:', error.message);
@@ -83,8 +85,9 @@ class RoundManager {
     }
 
     this.isRunning = true;
-    console.log('Starting Bitcoin Round Manager on Plume Testnet...');
-    console.log('Checking rounds every 30 seconds');
+    console.log('Starting Bitcoin Round Manager on Citrea Testnet...');
+    console.log('Using Blocksense price feed for BTC/USDT data');
+    console.log('Checking rounds every 60 seconds');
 
     // Initial check
     try {
@@ -93,7 +96,7 @@ class RoundManager {
       console.error('Failed initial round check:', error.message);
     }
 
-    // Set up interval for every 30 seconds
+    // Set up interval for every 60 seconds (since rounds are 15 minutes)
     this.interval = setInterval(async () => {
       if (!this.isRunning) return;
       
@@ -102,7 +105,7 @@ class RoundManager {
       } catch (error) {
         console.error('Scheduled round check failed:', error.message);
       }
-    }, 30 * 1000); // 30 seconds
+    }, 60 * 1000); // 60 seconds
   }
 
   stop() {

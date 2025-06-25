@@ -1,5 +1,6 @@
+
 import { useWallet } from '@/contexts/WalletContext';
-import { CONTRACTS } from '@/config/contracts';
+import { CONTRACTS, BLOCKSENSE_CONFIG } from '@/config/contracts';
 import { ethers } from 'ethers';
 import { useEffect, useState, useCallback } from 'react';
 
@@ -24,6 +25,7 @@ export const useContract = () => {
         );
         setContract(contractInstance);
         console.log('Contract initialized successfully');
+        console.log('Using Blocksense BTC/USDT feed:', BLOCKSENSE_CONFIG.BTC_USDT_FEED.address);
       } catch (error) {
         console.error('Failed to initialize contract:', error);
         setContract(null);
@@ -36,7 +38,7 @@ export const useContract = () => {
   const placeBet = useCallback(async (isUp: boolean, amount: string) => {
     if (!contract) throw new Error('Contract not initialized');
     
-    console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} PLUME`);
+    console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} cBTC`);
     const tx = await contract.placeBet(isUp, {
       value: ethers.parseEther(amount)
     });
@@ -75,14 +77,36 @@ export const useContract = () => {
   const getLatestPrice = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     const price = await contract.getLatestPrice();
-    // eOracle returns price with 8 decimals
+    // Blocksense returns price with 8 decimals (10^8 units)
     return Number(price) / 100000000;
+  }, [contract]);
+
+  const getPoolBalance = useCallback(async () => {
+    if (!contract) throw new Error('Contract not initialized');
+    const balance = await contract.poolBalance();
+    return ethers.formatEther(balance);
   }, [contract]);
 
   const startNewRound = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
     console.log('Starting new round...');
     const tx = await contract.startNewRound();
+    return tx.wait();
+  }, [contract]);
+
+  const depositToPool = useCallback(async (amount: string) => {
+    if (!contract) throw new Error('Contract not initialized');
+    console.log(`Depositing ${amount} cBTC to pool...`);
+    const tx = await contract.depositToPool({
+      value: ethers.parseEther(amount)
+    });
+    return tx.wait();
+  }, [contract]);
+
+  const withdrawFromPool = useCallback(async (amount: string) => {
+    if (!contract) throw new Error('Contract not initialized');
+    console.log(`Withdrawing ${amount} cBTC from pool...`);
+    const tx = await contract.withdrawFromPool(ethers.parseEther(amount));
     return tx.wait();
   }, [contract]);
 
@@ -95,6 +119,9 @@ export const useContract = () => {
     getPendingRewards,
     getCurrentRoundId,
     getLatestPrice,
-    startNewRound
+    getPoolBalance,
+    startNewRound,
+    depositToPool,
+    withdrawFromPool
   };
 };

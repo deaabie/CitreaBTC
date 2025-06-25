@@ -14,24 +14,24 @@ module.exports = {
     }
   },
   networks: {
-    plume_testnet: {
-      url: "https://testnet-rpc.plume.org",
-      chainId: 98867,
+    citrea_testnet: {
+      url: "https://rpc.testnet.citrea.xyz",
+      chainId: 5115,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: 1000000000, // 1 gwei
     }
   },
   etherscan: {
     apiKey: {
-      plume_testnet: "not-needed"
+      citrea_testnet: "not-needed"
     },
     customChains: [
       {
-        network: "plume_testnet",
-        chainId: 98867,
+        network: "citrea_testnet",
+        chainId: 5115,
         urls: {
-          apiURL: "https://testnet-explorer.plume.org/api",
-          browserURL: "https://testnet-explorer.plume.org"
+          apiURL: "https://explorer.testnet.citrea.xyz/api",
+          browserURL: "https://explorer.testnet.citrea.xyz"
         }
       }
     ]
