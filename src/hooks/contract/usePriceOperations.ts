@@ -15,7 +15,9 @@ export const usePriceOperations = (contract: ethers.Contract | null) => {
       if (error.message.includes('Price feed too old')) {
         try {
           // Get the raw price feed data to check the actual age
-          const provider = contract.provider;
+          const provider = contract.runner?.provider;
+          if (!provider) throw new Error('No provider available');
+          
           const priceFeedAddress = '0x25ef0a9b5041b2Cd96dcb1692B8C553aB2780BA3';
           const priceFeedAbi = [
             "function latestRoundData() external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)"

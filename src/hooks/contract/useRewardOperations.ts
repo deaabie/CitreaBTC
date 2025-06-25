@@ -9,7 +9,11 @@ export const useRewardOperations = (contract: ethers.Contract | null) => {
     console.log('Claiming rewards...');
     try {
       // First check if user has pending rewards
-      const signer = await contract.runner;
+      const signer = contract.runner as ethers.Signer;
+      if (!signer || typeof signer.getAddress !== 'function') {
+        throw new Error('Invalid signer');
+      }
+      
       const userAddress = await signer.getAddress();
       const pendingAmount = await contract.pendingRewards(userAddress);
       
@@ -24,7 +28,11 @@ export const useRewardOperations = (contract: ethers.Contract | null) => {
       }
       
       // Check contract balance
-      const contractBalance = await contract.runner.provider.getBalance(await contract.getAddress());
+      const provider = contract.runner?.provider;
+      if (!provider) throw new Error('No provider available');
+      
+      const contractAddress = await contract.getAddress();
+      const contractBalance = await provider.getBalance(contractAddress);
       console.log('Contract balance:', ethers.formatEther(contractBalance), 'cBTC');
       
       if (Number(contractBalance) < Number(pendingAmount)) {
