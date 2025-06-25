@@ -11,6 +11,9 @@ import NetworkInfo from './prediction/NetworkInfo';
 import LoadingState from './prediction/LoadingState';
 import ErrorState from './prediction/ErrorState';
 import CurrentRoundInfo from './prediction/CurrentRoundInfo';
+import AutoModeToggle from './prediction/AutoModeToggle';
+import ManualRoundTransition from './prediction/ManualRoundTransition';
+import DebugInfo from './prediction/DebugInfo';
 
 const PredictionInterface = () => {
   const { isConnected, connectWallet } = useWallet();
@@ -33,11 +36,9 @@ const PredictionInterface = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [isAutoMode, setIsAutoMode] = useState(true);
   
-  // Use refs to prevent unnecessary re-renders
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef<number>(0);
 
-  // Fetch price with caching
   const fetchPrice = useCallback(async () => {
     try {
       const price = await getLatestPriceWithFallback();
@@ -50,7 +51,6 @@ const PredictionInterface = () => {
     }
   }, [getLatestPriceWithFallback, currentPrice]);
 
-  // Check round status with caching
   const checkRounds = useCallback(async () => {
     try {
       const [status, id] = await Promise.all([
@@ -73,7 +73,6 @@ const PredictionInterface = () => {
     }
   }, [checkRoundStatus, getCurrentRoundId]);
 
-  // Initial data fetch
   const initializeData = useCallback(async () => {
     if (!isConnected || isInitializing) return;
     
@@ -97,7 +96,6 @@ const PredictionInterface = () => {
     }
   }, [isConnected, isInitializing, fetchPrice, checkRounds]);
 
-  // Manual round transition
   const handleRoundTransition = useCallback(async () => {
     try {
       setError(null);
@@ -124,7 +122,6 @@ const PredictionInterface = () => {
       
       if (remaining === 0 && !roundNeedsTransition) {
         setRoundNeedsTransition(true);
-        // Force check for auto transition
         if (isAutoMode) {
           forceCheck?.();
         }
@@ -134,7 +131,7 @@ const PredictionInterface = () => {
     return () => clearInterval(timer);
   }, [currentRound, roundNeedsTransition, isAutoMode, forceCheck]);
 
-  // Reduced frequency data updates
+  // Background data updates
   useEffect(() => {
     if (!isConnected || isInitializing) {
       setLoading(true);
@@ -143,11 +140,10 @@ const PredictionInterface = () => {
 
     initializeData();
 
-    // Background updates with reduced frequency
     intervalRef.current = setInterval(async () => {
       const now = Date.now();
       
-      if (now - lastUpdateRef.current < 15000) return; // Minimum 15 seconds
+      if (now - lastUpdateRef.current < 15000) return;
       lastUpdateRef.current = now;
       
       try {
@@ -158,7 +154,7 @@ const PredictionInterface = () => {
       } catch (error) {
         console.warn('Background update failed:', error);
       }
-    }, 45000); // Reduced to 45 seconds
+    }, 45000);
     
     return () => {
       if (intervalRef.current) {
@@ -210,50 +206,19 @@ const PredictionInterface = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      {/* Auto Mode Toggle */}
-      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-blue-300 font-medium">Auto Round Management</h3>
-            <p className="text-blue-200 text-sm">
-              {isAutoMode ? 'Rounds will transition automatically' : 'Manual round transition required'}
-            </p>
-          </div>
-          <button
-            onClick={() => setIsAutoMode(!isAutoMode)}
-            className={`px-4 py-2 rounded font-medium ${
-              isAutoMode 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-gray-600 hover:bg-gray-700 text-white'
-            }`}
-          >
-            {isAutoMode ? 'AUTO ON' : 'AUTO OFF'}
-          </button>
-        </div>
-      </div>
+      <AutoModeToggle 
+        isAutoMode={isAutoMode} 
+        onToggle={() => setIsAutoMode(!isAutoMode)} 
+      />
 
-      {/* Live Price Display */}
       <PriceDisplay currentPrice={currentPrice} previousPrice={previousPrice} />
 
-      {/* Manual Round Transition (only show if auto mode is off) */}
-      {!isAutoMode && roundNeedsTransition && (
-        <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-300 font-medium">Round #{roundId} has ended</p>
-              <p className="text-orange-200 text-sm">Click to start the next round manually</p>
-            </div>
-            <button
-              onClick={handleRoundTransition}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded font-medium"
-            >
-              Start Next Round
-            </button>
-          </div>
-        </div>
-      )}
+      <ManualRoundTransition
+        isVisible={!isAutoMode && roundNeedsTransition}
+        roundId={roundId}
+        onTransition={handleRoundTransition}
+      />
 
-      {/* Current Round Info */}
       {currentRound && (
         <div className="grid md:grid-cols-2 gap-6">
           <CurrentRoundInfo 
@@ -270,22 +235,17 @@ const PredictionInterface = () => {
         </div>
       )}
 
-      {/* Rewards Section */}
       <RewardsClaim />
 
-      {/* Debug Info for Development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-4 text-xs text-gray-400">
-          <p><strong>Debug Info:</strong></p>
-          <p>Auto Mode: {isAutoMode ? 'ON' : 'OFF'}</p>
-          <p>Round Needs Transition: {roundNeedsTransition ? 'Yes' : 'No'}</p>
-          <p>Round Active: {isRoundActive ? 'Yes' : 'No'}</p>
-          <p>Time Left: {timeLeft}s</p>
-          <p>Current Price: ${currentPrice.toLocaleString()}</p>
-          <p>Round ID: {roundId}</p>
-          <p>Round Finalized: {currentRound?.finalized ? 'Yes' : 'No'}</p>
-        </div>
-      )}
+      <DebugInfo
+        isAutoMode={isAutoMode}
+        roundNeedsTransition={roundNeedsTransition}
+        isRoundActive={isRoundActive}
+        timeLeft={timeLeft}
+        currentPrice={currentPrice}
+        roundId={roundId}
+        currentRound={currentRound}
+      />
     </div>
   );
 };
