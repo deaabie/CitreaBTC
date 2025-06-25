@@ -10,7 +10,6 @@ import HowToPlay from './prediction/HowToPlay';
 import NetworkInfo from './prediction/NetworkInfo';
 import LoadingState from './prediction/LoadingState';
 import ErrorState from './prediction/ErrorState';
-import RoundTransitionNotice from './prediction/RoundTransitionNotice';
 import CurrentRoundInfo from './prediction/CurrentRoundInfo';
 
 const PredictionInterface = () => {
@@ -20,7 +19,8 @@ const PredictionInterface = () => {
     checkRoundStatus,
     triggerRoundTransition,
     getCurrentRoundId, 
-    isInitializing
+    isInitializing,
+    forceCheck
   } = useContract();
   
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -31,30 +31,32 @@ const PredictionInterface = () => {
   const [error, setError] = useState<string | null>(null);
   const [roundNeedsTransition, setRoundNeedsTransition] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [isAutoMode, setIsAutoMode] = useState(true);
   
   // Use refs to prevent unnecessary re-renders
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateRef = useRef<number>(0);
 
-  // Separate price fetching from round management
+  // Fetch price with caching
   const fetchPrice = useCallback(async () => {
     try {
       const price = await getLatestPriceWithFallback();
-      setPreviousPrice(currentPrice);
+      setPreviousPrice(prev => prev === 0 ? price : currentPrice);
       setCurrentPrice(price);
       return price;
     } catch (error: any) {
       console.error('Error fetching price:', error);
-      // Don't throw error for price fetch failures, use fallback
       return currentPrice || 95000;
     }
   }, [getLatestPriceWithFallback, currentPrice]);
 
-  // Separate round status checking
+  // Check round status with caching
   const checkRounds = useCallback(async () => {
     try {
-      const status = await checkRoundStatus();
-      const id = await getCurrentRoundId();
+      const [status, id] = await Promise.all([
+        checkRoundStatus(),
+        getCurrentRoundId()
+      ]);
       
       if (status) {
         setCurrentRound(status.round);
@@ -81,17 +83,12 @@ const PredictionInterface = () => {
     try {
       console.log('Initializing prediction interface...');
       
-      // Fetch price and round data in parallel
       const [price] = await Promise.all([
         fetchPrice(),
         checkRounds()
       ]);
       
-      console.log('Initialization complete:', {
-        price: `$${price?.toLocaleString()}`,
-        connected: isConnected
-      });
-      
+      console.log('Initialization complete');
       setLoading(false);
     } catch (error: any) {
       console.error('Initialization error:', error);
@@ -100,20 +97,18 @@ const PredictionInterface = () => {
     }
   }, [isConnected, isInitializing, fetchPrice, checkRounds]);
 
-  // Handle manual round transition
+  // Manual round transition
   const handleRoundTransition = useCallback(async () => {
     try {
       setError(null);
-      console.log('User triggered round transition...');
+      console.log('Manual round transition...');
       
       await triggerRoundTransition();
-      
-      // Refresh data after transition
       await checkRounds();
       
-      console.log('Round transition completed');
+      console.log('Manual round transition completed');
     } catch (error: any) {
-      console.error('Round transition error:', error);
+      console.error('Manual round transition error:', error);
       setError(error.message);
     }
   }, [triggerRoundTransition, checkRounds]);
@@ -129,33 +124,33 @@ const PredictionInterface = () => {
       
       if (remaining === 0 && !roundNeedsTransition) {
         setRoundNeedsTransition(true);
+        // Force check for auto transition
+        if (isAutoMode) {
+          forceCheck?.();
+        }
       }
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [currentRound, roundNeedsTransition]);
+  }, [currentRound, roundNeedsTransition, isAutoMode, forceCheck]);
 
-  // Data fetching effect with reduced frequency
+  // Reduced frequency data updates
   useEffect(() => {
     if (!isConnected || isInitializing) {
       setLoading(true);
       return;
     }
 
-    // Initial fetch
     initializeData();
 
-    // Set up interval for data updates (reduced frequency)
+    // Background updates with reduced frequency
     intervalRef.current = setInterval(async () => {
       const now = Date.now();
       
-      // Prevent too frequent updates
-      if (now - lastUpdateRef.current < 10000) return; // Minimum 10 seconds between updates
-      
+      if (now - lastUpdateRef.current < 15000) return; // Minimum 15 seconds
       lastUpdateRef.current = now;
       
       try {
-        // Only fetch price and check round status, don't auto-transition
         await Promise.all([
           fetchPrice(),
           checkRounds()
@@ -163,7 +158,7 @@ const PredictionInterface = () => {
       } catch (error) {
         console.warn('Background update failed:', error);
       }
-    }, 30000); // Increased to 30 seconds to reduce UI refreshing
+    }, 45000); // Reduced to 45 seconds
     
     return () => {
       if (intervalRef.current) {
@@ -192,7 +187,6 @@ const PredictionInterface = () => {
       <div className="space-y-6">
         <ErrorState error={error} onRetry={initializeData} />
         
-        {/* Show manual transition option if round needs transition */}
         {roundNeedsTransition && (
           <div className="max-w-6xl mx-auto">
             <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4">
@@ -216,16 +210,38 @@ const PredictionInterface = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
+      {/* Auto Mode Toggle */}
+      <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-blue-300 font-medium">Auto Round Management</h3>
+            <p className="text-blue-200 text-sm">
+              {isAutoMode ? 'Rounds will transition automatically' : 'Manual round transition required'}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsAutoMode(!isAutoMode)}
+            className={`px-4 py-2 rounded font-medium ${
+              isAutoMode 
+                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                : 'bg-gray-600 hover:bg-gray-700 text-white'
+            }`}
+          >
+            {isAutoMode ? 'AUTO ON' : 'AUTO OFF'}
+          </button>
+        </div>
+      </div>
+
       {/* Live Price Display */}
       <PriceDisplay currentPrice={currentPrice} previousPrice={previousPrice} />
 
-      {/* Round Needs Transition Notice */}
-      {roundNeedsTransition && (
+      {/* Manual Round Transition (only show if auto mode is off) */}
+      {!isAutoMode && roundNeedsTransition && (
         <div className="bg-orange-900/20 border border-orange-500/30 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-orange-300 font-medium">Round #{roundId} has ended</p>
-              <p className="text-orange-200 text-sm">Click to start the next round and finalize results</p>
+              <p className="text-orange-200 text-sm">Click to start the next round manually</p>
             </div>
             <button
               onClick={handleRoundTransition}
@@ -249,7 +265,7 @@ const PredictionInterface = () => {
 
           <BetForm 
             roundId={roundId} 
-            disabled={!isRoundActive || roundNeedsTransition}
+            disabled={!isRoundActive || (roundNeedsTransition && !isAutoMode)}
           />
         </div>
       )}
@@ -261,6 +277,7 @@ const PredictionInterface = () => {
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-gray-900/50 border border-gray-600 rounded-lg p-4 text-xs text-gray-400">
           <p><strong>Debug Info:</strong></p>
+          <p>Auto Mode: {isAutoMode ? 'ON' : 'OFF'}</p>
           <p>Round Needs Transition: {roundNeedsTransition ? 'Yes' : 'No'}</p>
           <p>Round Active: {isRoundActive ? 'Yes' : 'No'}</p>
           <p>Time Left: {timeLeft}s</p>
