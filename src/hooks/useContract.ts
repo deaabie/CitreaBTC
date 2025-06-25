@@ -40,6 +40,59 @@ export const useContract = () => {
     initContract();
   }, [provider, account]);
 
+  const getCurrentRound = useCallback(async () => {
+    if (!contract) throw new Error('Contract not initialized');
+    try {
+      const round = await contract.getCurrentRound();
+      const roundData = {
+        startTime: Number(round.startTime),
+        endTime: Number(round.endTime),
+        startPrice: Number(round.startPrice),
+        endPrice: Number(round.endPrice),
+        isUp: round.isUp,
+        finalized: round.finalized
+      };
+      
+      console.log('Current round data:', {
+        ...roundData,
+        startTime: new Date(roundData.startTime * 1000).toLocaleString(),
+        endTime: new Date(roundData.endTime * 1000).toLocaleString(),
+        timeLeft: Math.max(0, roundData.endTime - Math.floor(Date.now() / 1000))
+      });
+      
+      return roundData;
+    } catch (error) {
+      console.error('Error getting current round:', error);
+      throw error;
+    }
+  }, [contract]);
+
+  const checkAndStartNewRound = useCallback(async () => {
+    if (!contract) return null;
+    
+    try {
+      const round = await getCurrentRound();
+      const now = Math.floor(Date.now() / 1000);
+      
+      // Check if round has ended and needs to be finalized
+      if (now >= round.endTime && !round.finalized) {
+        console.log('Round has ended, starting new round...');
+        const tx = await contract.startNewRound();
+        console.log('Starting new round, tx hash:', tx.hash);
+        await tx.wait();
+        console.log('New round started successfully');
+        
+        // Get the updated round data
+        return await getCurrentRound();
+      }
+      
+      return round;
+    } catch (error) {
+      console.error('Error checking/starting new round:', error);
+      throw error;
+    }
+  }, [contract, getCurrentRound]);
+
   const placeBet = useCallback(async (isUp: boolean, amount: string) => {
     if (!contract) throw new Error('Contract not initialized');
     if (!account) throw new Error('Wallet not connected');
@@ -47,6 +100,18 @@ export const useContract = () => {
     console.log(`Placing bet: ${isUp ? 'UP' : 'DOWN'}, Amount: ${amount} cBTC`);
     
     try {
+      // Check if round is still active before placing bet
+      const round = await getCurrentRound();
+      const now = Math.floor(Date.now() / 1000);
+      
+      if (now >= round.endTime) {
+        throw new Error('Round has already ended. Please wait for the new round to start.');
+      }
+      
+      if (round.finalized) {
+        throw new Error('Round is already finalized. Please wait for the new round to start.');
+      }
+      
       // Estimate gas first
       const gasEstimate = await contract.placeBet.estimateGas(isUp, {
         value: ethers.parseEther(amount)
@@ -73,11 +138,13 @@ export const useContract = () => {
         throw new Error('Insufficient cBTC balance');
       } else if (error.message.includes('Round already ended')) {
         throw new Error('Round has already ended');
+      } else if (error.message.includes('Round already finalized')) {
+        throw new Error('Round is already finalized');
       } else {
         throw new Error(error.message || 'Failed to place bet');
       }
     }
-  }, [contract, account]);
+  }, [contract, account, getCurrentRound]);
 
   const claimRewards = useCallback(async () => {
     if (!contract) throw new Error('Contract not initialized');
@@ -93,32 +160,6 @@ export const useContract = () => {
       if (error.message.includes('No rewards to claim')) {
         throw new Error('No rewards available to claim');
       }
-      throw error;
-    }
-  }, [contract]);
-
-  const getCurrentRound = useCallback(async () => {
-    if (!contract) throw new Error('Contract not initialized');
-    try {
-      const round = await contract.getCurrentRound();
-      console.log('Current round data:', {
-        startTime: Number(round.startTime),
-        endTime: Number(round.endTime),
-        startPrice: Number(round.startPrice),
-        endPrice: Number(round.endPrice),
-        isUp: round.isUp,
-        finalized: round.finalized
-      });
-      return {
-        startTime: Number(round.startTime),
-        endTime: Number(round.endTime),
-        startPrice: Number(round.startPrice),
-        endPrice: Number(round.endPrice),
-        isUp: round.isUp,
-        finalized: round.finalized
-      };
-    } catch (error) {
-      console.error('Error getting current round:', error);
       throw error;
     }
   }, [contract]);
@@ -197,6 +238,7 @@ export const useContract = () => {
     placeBet,
     claimRewards,
     getCurrentRound,
+    checkAndStartNewRound,
     getUserBets,
     getPendingRewards,
     getCurrentRoundId,

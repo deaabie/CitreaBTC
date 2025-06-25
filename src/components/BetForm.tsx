@@ -3,17 +3,18 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useContract } from '@/hooks/useContract';
 import { useWallet } from '@/contexts/WalletContext';
 
 interface BetFormProps {
   roundId: number;
+  disabled?: boolean;
 }
 
-const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
-  const [betAmount, setBetAmount] = useState('0.1');
+const BetForm: React.FC<BetFormProps> = ({ roundId, disabled = false }) => {
+  const [betAmount, setBetAmount] = useState('0.001');
   const [selectedPrediction, setSelectedPrediction] = useState<'up' | 'down' | null>(null);
   const [placing, setPlacing] = useState(false);
   const { toast } = useToast();
@@ -48,6 +49,15 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
       return;
     }
 
+    if (disabled) {
+      toast({
+        title: "Round Not Active",
+        description: "This round has ended or is transitioning. Please wait for the next round.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setPlacing(true);
     
     try {
@@ -61,7 +71,7 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
       });
       
       setSelectedPrediction(null);
-      setBetAmount('0.1');
+      setBetAmount('0.001');
     } catch (error: any) {
       console.error('Error placing bet:', error);
       toast({
@@ -80,16 +90,26 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
         <CardTitle className="text-orange-400">Place Your Bet</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {disabled && (
+          <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-3 mb-4">
+            <div className="flex items-center gap-2 text-yellow-400">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm font-medium">Round ended - waiting for new round</span>
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="text-sm text-gray-400 mb-2 block">Bet Amount (cBTC)</label>
           <Input
             type="number"
-            step="0.01"
-            min="0.01"
+            step="0.001"
+            min="0.001"
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             className="bg-gray-800/50 border-gray-600 text-white"
-            placeholder="0.1"
+            placeholder="0.001"
+            disabled={disabled}
           />
         </div>
 
@@ -98,12 +118,13 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
           <div className="grid grid-cols-2 gap-3">
             <Button
               variant={selectedPrediction === 'up' ? 'default' : 'outline'}
-              onClick={() => setSelectedPrediction('up')}
+              onClick={() => !disabled && setSelectedPrediction('up')}
+              disabled={disabled}
               className={`h-16 ${
                 selectedPrediction === 'up'
                   ? 'bg-green-600 hover:bg-green-700 text-white'
                   : 'border-green-500 text-green-400 hover:bg-green-500/20'
-              }`}
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className="flex flex-col items-center gap-1">
                 <ArrowUp className="w-6 h-6" />
@@ -113,12 +134,13 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
             
             <Button
               variant={selectedPrediction === 'down' ? 'default' : 'outline'}
-              onClick={() => setSelectedPrediction('down')}
+              onClick={() => !disabled && setSelectedPrediction('down')}
+              disabled={disabled}
               className={`h-16 ${
                 selectedPrediction === 'down'
                   ? 'bg-red-600 hover:bg-red-700 text-white'
                   : 'border-red-500 text-red-400 hover:bg-red-500/20'
-              }`}
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className="flex flex-col items-center gap-1">
                 <ArrowDown className="w-6 h-6" />
@@ -130,14 +152,20 @@ const BetForm: React.FC<BetFormProps> = ({ roundId }) => {
 
         <Button
           onClick={handlePlaceBet}
-          disabled={placing || !selectedPrediction || !isConnected}
+          disabled={placing || !selectedPrediction || !isConnected || disabled}
           className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-bold py-3"
         >
-          {placing ? 'Placing Bet...' : !isConnected ? 'Connect Wallet' : 'Place Bet'}
+          {placing ? 'Placing Bet...' : 
+           !isConnected ? 'Connect Wallet' : 
+           disabled ? 'Round Ended' : 
+           'Place Bet'}
         </Button>
 
         <div className="text-xs text-gray-400 text-center">
-          Potential payout: 1:1 ratio
+          {disabled ? 
+            'Waiting for new round to start...' : 
+            'Potential payout: 1:1 ratio based on winning pool'
+          }
         </div>
       </CardContent>
     </Card>
